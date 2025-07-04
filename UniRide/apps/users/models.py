@@ -1,0 +1,103 @@
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
+
+
+class Role(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        verbose_name = 'Rol'
+        verbose_name_plural = 'Roles'
+
+    def __str__(self):
+        return self.name
+
+
+class User(AbstractUser):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=13, unique=True)
+    profile_image = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    role_id = models.ForeignKey(Role, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'name', 'phone']
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['email']),
+        ]
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
+
+    def __str__(self):
+        return f"{self.name} ({self.email})"
+
+
+class VehicleType(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        verbose_name = 'Tipo de Vehículo'
+        verbose_name_plural = 'Tipos de Vehículo'
+
+    def __str__(self):
+        return self.name
+
+
+class Vehicle(models.Model):
+    user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicles')
+    type_id = models.ForeignKey(VehicleType, on_delete=models.PROTECT)
+    brand = models.CharField(max_length=100)
+    model = models.CharField(max_length=100, null=True, blank=True)
+    color = models.CharField(max_length=50, null=True, blank=True)
+    plate = models.CharField(max_length=20, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['plate']),
+        ]
+        verbose_name = 'Vehículo'
+        verbose_name_plural = 'Vehículos'
+
+    def __str__(self):
+        return f"{self.brand} - {self.plate}"
+
+
+class UserSuspension(models.Model):
+    user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='suspensions')
+    admin_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applied_suspensions')
+    reason = models.TextField()
+    start_date = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField()
+    is_permanent = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = 'Suspensión de Usuario'
+        verbose_name_plural = 'Suspensiones de Usuario'
+
+    def __str__(self):
+        return f"Suspensión a {self.user_id.name}"
+
+
+class AuditLog(models.Model):
+    admin_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='audit_logs')
+    action = models.CharField(max_length=100)
+    reason = models.TextField(null=True, blank=True)
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = 'Log de Auditoría'
+        verbose_name_plural = 'Logs de Auditoría'
+
+    def __str__(self):
+        return f"{self.admin_id.name} - {self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+
+
+
