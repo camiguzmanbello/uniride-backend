@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.ratings',
     'apps.trips',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -97,7 +98,28 @@ USE_TZ = True
 
 AUTH_USER_MODEL = 'users.User'
 
+# Configuración de autenticación de DRF
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'apps.users.authentication.CookieJWTAuthentication',  # Para cada request, valida el usuario usando la cookie access_token
+    ),
+}
 
+# Tiempo de expiración y comportamiento del JWT
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15), 
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),     
+    "ROTATE_REFRESH_TOKENS": True,  # genera nuevo refresh_token al usarlo
+    "BLACKLIST_AFTER_ROTATION": True,  # invalida el anterior
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+}
+AUTHENTICATION_BACKENDS = [
+    'apps.users.backends.EmailBackend',  
+    'django.contrib.auth.backends.ModelBackend',  
+]
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
@@ -107,3 +129,15 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Formato esperado: Bearer <tu_token_jwt>',
+        }
+    },
+    'USE_SESSION_AUTH': False,
+}
