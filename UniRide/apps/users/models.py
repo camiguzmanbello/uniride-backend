@@ -23,8 +23,13 @@ class User(AbstractUser):
     role_id = models.ForeignKey(Role, on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
 
+     # Desactivar campos que no se necesitan de AbstractUser
+    username = models.CharField(max_length=150, unique=True, null=True, blank=True)
+    first_name = models.CharField(max_length=150, null=True, blank=True)
+    last_name = models.CharField(max_length=150, null=True, blank=True)
+
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'name', 'phone']
+    REQUIRED_FIELDS = ['name', 'phone']
 
     class Meta:
         indexes = [
