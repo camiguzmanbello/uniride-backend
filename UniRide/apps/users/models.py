@@ -13,6 +13,19 @@ class Role(models.Model):
     def __str__(self):
         return self.name
 
+class PendingUser(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=13)
+    password = models.CharField(max_length=128)  # Guardar el hash
+    role_id = models.ForeignKey('Role', on_delete=models.PROTECT)
+    profile_image = models.TextField(null=True, blank=True)
+    code = models.CharField(max_length=6)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.email} - {self.code}"
 
 class User(AbstractUser):
     name = models.CharField(max_length=100)
@@ -22,6 +35,7 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
     role_id = models.ForeignKey(Role, on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
+    is_verified = models.BooleanField(default=False)
 
      # Desactivar campos que no se necesitan de AbstractUser
     username = models.CharField(max_length=150, unique=True, null=True, blank=True)
@@ -92,17 +106,35 @@ class UserSuspension(models.Model):
 
 
 class AuditLog(models.Model):
-    admin_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='audit_logs')
-    action = models.CharField(max_length=100)
-    reason = models.TextField(null=True, blank=True)
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="Usuario que realizó la acción"
+    )
+    action = models.CharField(max_length=100, help_text="Nombre del evento auditado, ej: LOGIN_EXITOSO")
+    target_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_targets',
+        help_text="Usuario sobre el que se actuó, si aplica"
+    )
+    reason = models.TextField(null=True, blank=True, help_text="Motivo de la acción (si aplica)")
+    extra_data = models.JSONField(null=True, blank=True, help_text="Datos adicionales relevantes")
     timestamp = models.DateTimeField(default=timezone.now)
 
     class Meta:
         verbose_name = 'Log de Auditoría'
         verbose_name_plural = 'Logs de Auditoría'
+        ordering = ['-timestamp']
 
-    def __str__(self):
-        return f"{self.admin_id.name} - {self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+    def _str_(self):
+        actor_email = self.actor.email if self.actor else "Usuario eliminado"
+        return f"{actor_email} → {self.action} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
 
 
 
