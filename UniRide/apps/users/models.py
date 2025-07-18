@@ -132,9 +132,8 @@ class AuditLog(models.Model):
         verbose_name_plural = 'Logs de Auditoría'
         ordering = ['-timestamp']
 
-    def _str_(self):
+
+    def __str__(self):
         actor_email = self.actor.email if self.actor else "Usuario eliminado"
         return f"{actor_email} → {self.action} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
-
-
 

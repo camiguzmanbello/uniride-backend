@@ -9,7 +9,9 @@ router.register(r'vehicles', VehicleView, basename='vehicles')
 urlpatterns = [
     path('', include(router.urls)),
     path("login/", LoginView.as_view(), name="login"),
+    path("refresh-token/", RefreshTokenView.as_view(), name="refresh_token"),
     path("perfil/", PerfilView.as_view(), name="perfil"),
+    path('perfil/cambiar-password/', CambiarPasswordView.as_view()),  
     path("logout/", LogoutView.as_view(), name="logout"),
     path("refresh-token/", RefreshTokenView.as_view(), name="refresh_token"),
     path("Users/", UserView.as_view(), name="registrerUser"),
