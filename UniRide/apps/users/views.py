@@ -6,7 +6,7 @@ from django.utils.timezone import now
 from rest_framework.views import APIView
 from rest_framework.response import Response  # Retornar respuestas (Response)
 # Definir quién puede acceder a cada vista (permissions)
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework import status, permissions, viewsets
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.conf import settings
@@ -26,6 +26,9 @@ from apps.core.token_generation import generate_reset_token, verify_reset_token
 from rest_framework.exceptions import ValidationError
 User = get_user_model()
 logger = logging.getLogger(__name__)
+from .utils.jwt_cookies import generar_respuesta_con_tokens, set_tokens_en_response
+from .utils.audit import registrar_log
+from .authentication import CookieJWTAuthentication  # o desde donde la hayas definido
 
 
 class LoginView(APIView):
@@ -37,7 +40,7 @@ class LoginView(APIView):
 
         try:
             serializer.is_valid(raise_exception=True)
-            email = serializer.validated_data["email"]
+            email = serializer.validated_data["email"].lower()
             password = serializer.validated_data["password"]
 
             user = authenticate(request, email=email, password=password)
@@ -81,9 +84,16 @@ class LoginView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-# Hace que el usuario no tenga que hacer el proceso de login ya que lo hace automaticamente
 
+class UserMeView(APIView):
+    authentication_classes = [CookieJWTAuthentication] 
+    permission_classes = [permissions.IsAuthenticated]
 
+    def get(self, request):
+        serializer = UserMeSerializer(request.user)
+        return Response(serializer.data)
+    
+#Hace que el usuario no tenga que hacer el proceso de login ya que lo hace automaticamente 
 class RefreshTokenView(APIView):
     def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
@@ -115,7 +125,7 @@ class RefreshTokenView(APIView):
 
 
 class PerfilView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
         user = request.user
@@ -124,7 +134,7 @@ class PerfilView(APIView):
             "name": user.name,
             "phone": user.phone
         })
-
+        
     @swagger_auto_schema(request_body=EditarPerfilSerializer)
     def patch(self, request):
         user = request.user
@@ -152,6 +162,169 @@ class PerfilView(APIView):
             return Response({"message": "Perfil actualizado correctamente"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request):
+        user = request.user
+        user.is_active = False
+        user.phone = None
+        user.role_id_id= None  
+        user.is_staff = False 
+        user.set_unusable_password()
+        user.save()
+
+        registrar_log(
+            actor=user,
+            action="SOFT_DELETE_ADMIN",
+            target_user=user,
+            reason="Desactivación voluntaria de administrador"
+        )
+        response = Response({"message": "Administrador desactivado correctamente."}, status=status.HTTP_200_OK)
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token") 
+        return response
+
+
+class PreRegisterAdminView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def _generate_code(self):
+        while True:
+            code = str(random.randint(100000, 999999))
+            if not PendingUser.objects.filter(code=code, expires_at__gt=timezone.now()).exists():
+                return code
+
+    def _normalize_phone_number(self, phone: str) -> str:
+        return ''.join(filter(str.isdigit, phone))
+
+    @swagger_auto_schema(request_body=PendingAdminUserSerializer)
+    def post(self, request):
+        serializer = PendingAdminUserSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response({'errors': serializer.errors}, status=400)
+
+        email = serializer.validated_data["email"]
+        phone = self._normalize_phone_number(serializer.validated_data["phone"])
+        name = serializer.validated_data["name"]
+
+        code = self._generate_code()
+        expires = timezone.now() + timedelta(minutes=10)
+
+        # ===== VALIDAR EN USUARIOS ACTIVOS =====
+        user_qs = User.objects.filter(email__iexact=email)
+        if user_qs.exists():
+            user = user_qs.first()
+            if user.is_active:
+                return Response({'error': 'Este correo ya está registrado.'}, status=400)
+            elif User.objects.filter(phone=phone).exclude(id=user.id).exists():
+                return Response({'error': 'Este número ya está en uso por otro usuario.'}, status=400)
+
+        elif User.objects.filter(phone=phone).exists():
+            return Response({'error': 'Este número ya está en uso por otro usuario.'}, status=400)
+
+        # ===== VALIDAR EN PENDING USER =====
+        existing_pending = PendingUser.objects.filter(email__iexact=email).first()
+        other_pending = PendingUser.objects.filter(phone=phone).exclude(email__iexact=email).first()
+        if other_pending:
+            return Response({'error': 'Este número ya está en uso por otro preregistro.'}, status=400)
+
+        # ===== ACTUALIZAR O CREAR PENDING USER =====
+        if existing_pending:
+            existing_pending.name = name
+            existing_pending.phone = phone
+            existing_pending.code = code
+            existing_pending.expires_at = expires
+            existing_pending.save()
+        else:
+            PendingUser.objects.create(
+                name=name,
+                email=email,
+                phone=phone,
+                code=code,
+                expires_at=expires,
+                role_id_id=1,  
+                registrado_por=request.user 
+            )
+
+        # ===== ENVIAR CORREO =====
+        confirmation_url = f"https://tuapp.com/confirmar-admin/{code}/"
+        send_mail(
+            subject='¡Confirma tu registro como Administrador en UniRide!',
+            message=(
+                f"Hola,\n\n"
+                f"¡Bienvenido a UniRide!\n\n"
+                f"Has sido registrado como administrador en nuestra plataforma. Para completar tu registro, por favor utiliza el siguiente código de verificación:\n\n"
+                f"🔐 Código: {code}\n\n"
+                f"Y haz clic en el siguiente enlace para confirmar tu cuenta:\n"
+                f"{confirmation_url}\n\n"
+                f"Este enlace expirará en 10 minutos.\n\n"
+                f"Gracias por formar parte del equipo,\n"
+                f"El equipo de UniRide 🚗"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+        )
+
+        return Response({'message': 'Correo de confirmación enviado o reenviado.'}, status=200)
+
+
+class ConfirmAdminView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(request_body=ConfirmAdminSerializer)
+    def post(self, request):
+        serializer = ConfirmAdminSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        code = serializer.validated_data['code']
+        password = serializer.validated_data['password']
+
+        try:
+            pending = PendingUser.objects.get(code=code, expires_at__gt=timezone.now())
+        except PendingUser.DoesNotExist:
+            return Response({"error": "Código inválido o expirado"}, status=400)
+
+        if pending.role_id_id != 1:
+            return Response({"error": "No tienes permiso para confirmar esta cuenta."}, status=403)
+
+        # Si ya existe un usuario con ese email y está inactivo → reactivarlo
+        try:
+            user = User.objects.get(email__iexact=pending.email)
+            if not user.is_active:
+                user.name = pending.name
+                user.phone = pending.phone
+                user.set_password(password)
+                user.is_active = True
+                user.is_staff = True
+                user.role_id_id = 1
+                user.save()
+            else:
+                return Response({"error": "Este usuario ya está activo."}, status=400)
+
+        except User.DoesNotExist:
+            # Si no existe, crear nuevo usuario
+            user = User.objects.create_user(
+                name=pending.name,
+                username=pending.email,
+                email=pending.email,
+                phone=pending.phone,
+                password=password,
+                is_active=True,
+                is_staff=True,
+                role_id_id=1,
+            )
+            # ConfirmAdminView - después de activar o crear el usuario
+
+            registrar_log(
+                actor=pending.registrado_por,  
+                action="ACCION_REGISTRO_ADMIN",
+                target_user=user,
+                reason='Confirmación de cuenta de administrador desde preregistro',
+                extra_data={'email': user.email, 'phone': user.phone},
+            )
+        # Eliminar el registro pendiente
+        pending.delete()
+
+        return Response({"message": "Cuenta de administrador confirmada con éxito."})
 
 # Borra ambas cookies
 class LogoutView(APIView):
