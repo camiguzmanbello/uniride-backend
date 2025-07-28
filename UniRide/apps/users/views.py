@@ -1,3 +1,5 @@
+from .utils.audit import registrar_log
+from .utils.jwt_cookies import generar_respuesta_con_tokens, set_tokens_en_response
 from django.contrib.auth import authenticate
 from django.utils.timezone import now
 # Crear vistas basadas en clases (APIView)
@@ -28,6 +30,7 @@ from .utils.jwt_cookies import generar_respuesta_con_tokens, set_tokens_en_respo
 from .utils.audit import registrar_log
 from .authentication import CookieJWTAuthentication  # o desde donde la hayas definido
 
+
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -45,7 +48,6 @@ class LoginView(APIView):
             if user is not None:
                 user.last_login = now()
                 user.save(update_fields=["last_login"])
-
 
                 registrar_log(
                     actor=user,
@@ -81,6 +83,7 @@ class LoginView(APIView):
                 {"error": "Error interno del servidor. Inténtalo más tarde."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class UserMeView(APIView):
     authentication_classes = [CookieJWTAuthentication] 
@@ -137,7 +140,8 @@ class PerfilView(APIView):
         user = request.user
         old_data = {"name": user.name, "phone": user.phone}
 
-        serializer = EditarPerfilSerializer(user, data=request.data, partial=True)
+        serializer = EditarPerfilSerializer(
+            user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
 
@@ -322,7 +326,7 @@ class ConfirmAdminView(APIView):
 
         return Response({"message": "Cuenta de administrador confirmada con éxito."})
 
-#Borra ambas cookies 
+# Borra ambas cookies
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -388,29 +392,34 @@ class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def _validate_user_existence(self, request, email, phone):
-        """Valida que el email y phone no existan en User ni PendingUser."""
         status_err = status.HTTP_409_CONFLICT
         status_ok = status.HTTP_200_OK
 
-        if User.objects.filter(email__iexact=email).exists():
-            return "Este correo ya está registrado."
+        existing_user = User.objects.filter(email__iexact=email).first()
+
+        # Si el usuario existe y está inactivo, intentamos reactivarlo
+        if existing_user and not existing_user.is_active:
+            # Validar que el número de teléfono no esté siendo usado por otro usuario activo
+            if User.objects.filter(phone=phone).exclude(id=existing_user.id).exists():
+                return Response({"error": "Este número de teléfono ya está registrado por otro usuario."}, status=status_err)
+
+            return None
+
+        # Si el usuario existe y está activo
+        if existing_user and existing_user.is_active:
+            return Response({"error": "Este correo ya está registrado."}, status=status_err)
+
+        # Validaciones para nuevos registros
         if User.objects.filter(phone=phone).exists():
-            return "Este número de teléfono ya está registrado."
+            return Response({"error": "Este número de teléfono ya está registrado."}, status=status_err)
+
         if PendingUser.objects.filter(email__iexact=email).exists():
-            return "Ya hay un proceso de verificación en curso para este correo."
+            return Response({"error": "Ya hay un proceso de verificación en curso para este correo."}, status=status_err)
         if PendingUser.objects.filter(phone=phone).exists():
             return Response({"error": "Ya hay un proceso de verificación en curso para este número."}, status=status_err)
-        #Si el usuario existe y está inactivo, lo reactivamos
-        existing_user = User.objects.filter(email=email).first()
-        if existing_user and not existing_user.is_active:
-            existing_user.is_active = True
-            existing_user.phone = phone  # Actualiza si es necesario
-            existing_user.password = make_password(request.data.get('password'))  # Actualiza contraseña
-            existing_user.save()
-            #esto reactivara los vehiculos del usuario
-            existing_user.vehicles.filter(is_active=False).update(is_active=True)
 
-            return Response({"message": "Cuenta reactivada exitosamente."}, status=status_ok)
+        return None
+
 
     def _generate_verification_code(self):
         """Genera un código único de 6 dígitos no expirado."""
@@ -427,7 +436,7 @@ class RegisterView(APIView):
             phone = serializer.validated_data['phone']
 
             # Validación personalizada
-            validate = self._validate_user_existence(email, phone)
+            validate = self._validate_user_existence(request, email, phone)
             if validate:
                 return validate
 
@@ -474,14 +483,14 @@ class RegisterView(APIView):
 
 
 class UserSelfProfileView(RetrieveUpdateAPIView):
-    
+
     permission_classes = [IsAuthenticated]
 
     serializer_class = UserSerializer
 
     def get_object(self):
         return self.request.user
-    
+
     def delete(self, request, *args, **kwargs):
         user = self.get_object()
         user.is_active = False
@@ -495,19 +504,20 @@ class UserSelfProfileView(RetrieveUpdateAPIView):
 
 
 class UserVehicleProfileView(RetrieveUpdateAPIView):
-    
+
     permission_classes = [IsAuthenticated]
 
     serializer_class = VehicleSerializer
 
     def get(self, request, *args, **kwargs):
-        user_vehicles_queryset = request.user.vehicles.filter(is_active=True) # Obtiene el QuerySet
+        user_vehicles_queryset = request.user.vehicles.filter(
+            is_active=True)  # Obtiene el QuerySet
         if not user_vehicles_queryset:
             return Response({"message": "No tienes vehículos activos."}, status=status.HTTP_404_NOT_FOUND)
         serializer = VehicleSerializer(user_vehicles_queryset, many=True)
         return Response(serializer.data)
-    
-    
+
+
 class DeactivateSingleVehicleView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -521,7 +531,7 @@ class DeactivateSingleVehicleView(APIView):
         vehicle.is_active = False
         vehicle.save()
         return Response({"message": "Vehículo desactivado exitosamente."}, status=status.HTTP_204_NO_CONTENT)
-    
+
 
 class DeactivateAllVehiclesView(APIView):
     permission_classes = [IsAuthenticated]
@@ -537,7 +547,8 @@ class DeactivateAllVehiclesView(APIView):
 
 class VehicleTypeView(viewsets.ModelViewSet):
 
-    permission_classes = [permissions.IsAuthenticated] #debe ser solo para admins
+    # debe ser solo para admins
+    permission_classes = [permissions.IsAuthenticated]
 
     queryset = VehicleType.objects.all()
     serializer_class = VehicleTypeSerializer
@@ -592,7 +603,7 @@ class UserPendingEditDeleteView(RetrieveUpdateDestroyAPIView):
     queryset = PendingUser.objects.all()
     serializer_class = PendingUserSerializer
 
-    permission_classes = [permissions.AllowAny] #admins
+    permission_classes = [permissions.AllowAny]  # admins
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -641,24 +652,36 @@ class VerifyPendingUserView(APIView):
     @swagger_auto_schema(request_body=VerifyCodeSerializer)
     def post(self, request):
         serializer = VerifyCodeSerializer(data=request.data)
-        if serializer.is_valid():
+        if serializer.is_valid():   
             code = serializer.validated_data['code']
 
-            # Supón que el frontend envió el código pero ya conoce el email (guardado localmente)
-            # Por ahora, recuperamos el único PendingUser con ese código válido
             pending = PendingUser.objects.filter(
                 code=code, expires_at__gt=timezone.now()).first()
+            
+            existing_user = User.objects.filter(email=pending.email, is_active=False).first()
 
             if pending:
-                user = User.objects.create(
-                    name=pending.name,
-                    email=pending.email,
-                    phone=pending.phone,
-                    password=pending.password,  # Ya hasheada
-                    role_id=pending.role_id,
-                    profile_image=pending.profile_image,
-                    is_verified=True
-                )
+
+                if existing_user:
+                    # Reactivar usuario
+                    existing_user.is_active = True
+                    existing_user.name = pending.name
+                    existing_user.phone = pending.phone
+                    existing_user.password = pending.password
+                    existing_user.save()
+
+                    # Reactivar vehículos
+                    #existing_user.vehicles.filter(is_active=False).update(is_active=True)
+                else:
+                    user = User.objects.create(
+                        name=pending.name,
+                        email=pending.email,
+                        phone=pending.phone,
+                        password=pending.password,  # Ya hasheada
+                        role_id=pending.role_id,
+                        profile_image=pending.profile_image,
+                        is_verified=True
+                    )
                 pending.delete()
                 return Response({"message": "Usuario creado y verificado exitosamente."}, status=status.HTTP_201_CREATED)
 
@@ -764,12 +787,15 @@ class PasswordResetConfirmView(APIView):
 
         return Response({"message": "Contraseña actualizada correctamente."}, status=status.HTTP_200_OK)
 
+
 class CambiarPasswordView(APIView):
     permission_classes = [IsAuthenticated]
+
     @swagger_auto_schema(request_body=CambiarPasswordSerializer)
     def post(self, request):
-        serializer = CambiarPasswordSerializer(data=request.data, context={'request': request})
-        
+        serializer = CambiarPasswordSerializer(
+            data=request.data, context={'request': request})
+
         if serializer.is_valid():
             user = request.user
 
