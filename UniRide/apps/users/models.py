@@ -13,27 +13,13 @@ class Role(models.Model):
     def __str__(self):
         return self.name
 
-class PendingUser(models.Model):
-    name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=13)
-    password = models.CharField(max_length=128)  # Guardar el hash
-    role_id = models.ForeignKey('Role', on_delete=models.PROTECT)
-    profile_image = models.TextField(null=True, blank=True)
-    code = models.CharField(max_length=6)
-    expires_at = models.DateTimeField()
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"{self.email} - {self.code}"
-
 class User(AbstractUser):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=13, unique=True)
+    phone = models.CharField(max_length=13, unique=True, null=True, blank=True)
     profile_image = models.TextField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
-    role_id = models.ForeignKey(Role, on_delete=models.PROTECT)
+    role_id = models.ForeignKey(Role, on_delete=models.PROTECT, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     is_verified = models.BooleanField(default=False)
 
@@ -41,6 +27,9 @@ class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
+    is_superuser=models.BooleanField(null=True, blank=True)
+    date_joined=models.DateTimeField(null=True, blank=True) 
+    is_verified=models.BooleanField(null=True, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name', 'phone']
@@ -54,7 +43,27 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.name} ({self.email})"
-
+    
+class PendingUser(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(unique=False)
+    phone = models.CharField(max_length=13)
+    password = models.CharField(max_length=128)  # Guardar el hash
+    role_id = models.ForeignKey('Role', on_delete=models.PROTECT, null=True)
+    profile_image = models.TextField(null=True, blank=True)
+    code = models.CharField(max_length=6)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="usuarios_preregistrados",
+        help_text="Administrador que hizo el preregistro"
+    )
+    def __str__(self):
+        return f"{self.email} - {self.code}"
 
 class VehicleType(models.Model):
     name = models.CharField(max_length=50, unique=True)
