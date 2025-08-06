@@ -163,24 +163,32 @@ class PerfilView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        user = request.user
-        user.is_active = False
-        user.phone = None
-        user.role_id_id= None  
-        user.is_staff = False 
-        user.set_unusable_password()
-        user.save()
+        try:
+            user = request.user
+            user.is_active = False
+            user.phone = None
+            user.role_id_id = None  
+            user.is_staff = False 
+            user.set_unusable_password()
+            user.save()
 
-        registrar_log(
-            actor=user,
-            action="SOFT_DELETE_ADMIN",
-            target_user=user,
-            reason="Desactivación voluntaria de administrador"
-        )
-        response = Response({"message": "Administrador desactivado correctamente."}, status=status.HTTP_200_OK)
-        response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token") 
-        return response
+            registrar_log(
+                actor=user,
+                action="SOFT_DELETE_ADMIN",
+                target_user=user,
+                reason="Desactivación voluntaria de administrador"
+            )
+
+            response = Response({"message": "Administrador desactivado correctamente."}, status=status.HTTP_200_OK)
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token") 
+            return response
+
+        except Exception as e:
+            return Response(
+                {"error": "No se pudo desactivar el administrador. Intente en otro momento."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class PreRegisterAdminView(APIView):
@@ -201,7 +209,7 @@ class PreRegisterAdminView(APIView):
         if not serializer.is_valid():
             return Response({'errors': serializer.errors}, status=400)
 
-        email = serializer.validated_data["email"]
+        email = serializer.validated_data["email"].lower()
         phone = self._normalize_phone_number(serializer.validated_data["phone"])
         name = serializer.validated_data["name"]
 

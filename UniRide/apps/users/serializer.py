@@ -25,11 +25,16 @@ class LoginSerializer(serializers.Serializer):
 class CambiarPasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True)
-    confirm_password= serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        return validar_password_y_confirmacion(data, context_user=self.context['request'].user)
-    
+        validar_password_y_confirmacion(
+            password1=data["new_password"],
+            password2=data["confirm_password"],
+            context_user=self.context['request'].user
+        )
+        return data
+
 
 class EditarPerfilSerializer(serializers.ModelSerializer):
     class Meta:
@@ -75,10 +80,17 @@ class ConfirmAdminSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
-
     def validate(self, data):
-        return validar_password_y_confirmacion(data, context_user=self.context['request'].user)
+        # Esto lanza serializers.ValidationError en caso de fallo
+        validated_password = validar_password_y_confirmacion(
+            password1=data["password"],
+            password2=data["confirm_password"],
+            context_user=self.context['request'].user
+        )
 
+        data["password"] = validated_password  # opcional, si quieres guardarla ya validada
+        return data
+    
 class UserMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
