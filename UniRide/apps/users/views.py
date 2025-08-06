@@ -1,3 +1,5 @@
+# o desde donde la hayas definido
+from .authentication import CookieJWTAuthentication
 from .utils.audit import registrar_log
 from .utils.jwt_cookies import generar_respuesta_con_tokens, set_tokens_en_response
 from django.contrib.auth import authenticate
@@ -24,11 +26,10 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 from apps.core.token_generation import generate_reset_token, verify_reset_token
 from rest_framework.exceptions import ValidationError
+from apps.users.utils.utils import generate_verification_code, send_code_email
+
 User = get_user_model()
 logger = logging.getLogger(__name__)
-from .utils.jwt_cookies import generar_respuesta_con_tokens, set_tokens_en_response
-from .utils.audit import registrar_log
-from .authentication import CookieJWTAuthentication  # o desde donde la hayas definido
 
 
 class LoginView(APIView):
@@ -86,14 +87,16 @@ class LoginView(APIView):
 
 
 class UserMeView(APIView):
-    authentication_classes = [CookieJWTAuthentication] 
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         serializer = UserMeSerializer(request.user)
         return Response(serializer.data)
-    
-#Hace que el usuario no tenga que hacer el proceso de login ya que lo hace automaticamente 
+
+# Hace que el usuario no tenga que hacer el proceso de login ya que lo hace automaticamente
+
+
 class RefreshTokenView(APIView):
     def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
@@ -134,7 +137,7 @@ class PerfilView(APIView):
             "name": user.name,
             "phone": user.phone
         })
-        
+
     @swagger_auto_schema(request_body=EditarPerfilSerializer)
     def patch(self, request):
         user = request.user
@@ -166,8 +169,8 @@ class PerfilView(APIView):
         user = request.user
         user.is_active = False
         user.phone = None
-        user.role_id_id= None  
-        user.is_staff = False 
+        user.role_id_id = None
+        user.is_staff = False
         user.set_unusable_password()
         user.save()
 
@@ -177,9 +180,10 @@ class PerfilView(APIView):
             target_user=user,
             reason="Desactivación voluntaria de administrador"
         )
-        response = Response({"message": "Administrador desactivado correctamente."}, status=status.HTTP_200_OK)
+        response = Response(
+            {"message": "Administrador desactivado correctamente."}, status=status.HTTP_200_OK)
         response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token") 
+        response.delete_cookie("refresh_token")
         return response
 
 
@@ -197,12 +201,14 @@ class PreRegisterAdminView(APIView):
 
     @swagger_auto_schema(request_body=PendingAdminUserSerializer)
     def post(self, request):
-        serializer = PendingAdminUserSerializer(data=request.data, context={'request': request})
+        serializer = PendingAdminUserSerializer(
+            data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response({'errors': serializer.errors}, status=400)
 
         email = serializer.validated_data["email"]
-        phone = self._normalize_phone_number(serializer.validated_data["phone"])
+        phone = self._normalize_phone_number(
+            serializer.validated_data["phone"])
         name = serializer.validated_data["name"]
 
         code = self._generate_code()
@@ -221,8 +227,10 @@ class PreRegisterAdminView(APIView):
             return Response({'error': 'Este número ya está en uso por otro usuario.'}, status=400)
 
         # ===== VALIDAR EN PENDING USER =====
-        existing_pending = PendingUser.objects.filter(email__iexact=email).first()
-        other_pending = PendingUser.objects.filter(phone=phone).exclude(email__iexact=email).first()
+        existing_pending = PendingUser.objects.filter(
+            email__iexact=email).first()
+        other_pending = PendingUser.objects.filter(
+            phone=phone).exclude(email__iexact=email).first()
         if other_pending:
             return Response({'error': 'Este número ya está en uso por otro preregistro.'}, status=400)
 
@@ -240,8 +248,8 @@ class PreRegisterAdminView(APIView):
                 phone=phone,
                 code=code,
                 expires_at=expires,
-                role_id_id=1,  
-                registrado_por=request.user 
+                role_id_id=1,
+                registrado_por=request.user
             )
 
         # ===== ENVIAR CORREO =====
@@ -271,7 +279,8 @@ class ConfirmAdminView(APIView):
 
     @swagger_auto_schema(request_body=ConfirmAdminSerializer)
     def post(self, request):
-        serializer = ConfirmAdminSerializer(data=request.data, context={'request': request})
+        serializer = ConfirmAdminSerializer(
+            data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
@@ -279,7 +288,8 @@ class ConfirmAdminView(APIView):
         password = serializer.validated_data['password']
 
         try:
-            pending = PendingUser.objects.get(code=code, expires_at__gt=timezone.now())
+            pending = PendingUser.objects.get(
+                code=code, expires_at__gt=timezone.now())
         except PendingUser.DoesNotExist:
             return Response({"error": "Código inválido o expirado"}, status=400)
 
@@ -315,7 +325,7 @@ class ConfirmAdminView(APIView):
             # ConfirmAdminView - después de activar o crear el usuario
 
             registrar_log(
-                actor=pending.registrado_por,  
+                actor=pending.registrado_por,
                 action="ACCION_REGISTRO_ADMIN",
                 target_user=user,
                 reason='Confirmación de cuenta de administrador desde preregistro',
@@ -327,6 +337,8 @@ class ConfirmAdminView(APIView):
         return Response({"message": "Cuenta de administrador confirmada con éxito."})
 
 # Borra ambas cookies
+
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -420,14 +432,6 @@ class RegisterView(APIView):
 
         return None
 
-
-    def _generate_verification_code(self):
-        """Genera un código único de 6 dígitos no expirado."""
-        while True:
-            code = str(random.randint(100000, 999999))
-            if not PendingUser.objects.filter(code=code, expires_at__gt=timezone.now()).exists():
-                return code
-
     @swagger_auto_schema(request_body=PendingUserSerializer)
     def post(self, request):
         serializer = PendingUserSerializer(data=request.data)
@@ -441,7 +445,7 @@ class RegisterView(APIView):
                 return validate
 
             # Generar código y tiempo de expiración
-            code = self._generate_verification_code()
+            code = generate_verification_code()
             expiration = timezone.now() + timedelta(minutes=10)
             hashed_password = make_password(
                 serializer.validated_data['password'])
@@ -459,23 +463,24 @@ class RegisterView(APIView):
             )
 
             # Enviar correo
-            send_mail(
-                subject='Código de verificación de UniRide',
+            send_code_email(
+                subject="Verificación de Cuenta - UniRide",
                 message=(
-                    f'Hola,\n\n'
-                    f'Estás a punto de registrarte en UniRide.\n'
-                    f'Tu código de verificación es: {code}\n\n'
-                    f'Este código expirará en 10 minutos.\n\n'
-                    f'Si no solicitaste este registro, ignora este mensaje.\n\n'
-                    f'Gracias,\nEl equipo de UniRide.'
+                    f'Hola {pending.name},<br><br>'
+                    f'Estás a punto de registrarte en UniRide, '
+                    f'tu código de verificación es:<br>'
                 ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
+                code=code,
+                finalmessage=(
+                    f'Este código expirará en 10 minutos.<br><br>'
+                    f'Si no solicitaste este registro, ignora este mensaje.<br><br>'
+                    f'Gracias, el equipo de UniRide.'
+                ),
+                email=email
             )
 
             return Response(
-                {"message": "Código enviado. Verifica tu correo.", "email": email},
+                {"message": "Se te ha enviado un codigo de verificación, Verifica tu correo.", "email": email},
                 status=status.HTTP_200_OK
             )
 
@@ -652,13 +657,17 @@ class VerifyPendingUserView(APIView):
     @swagger_auto_schema(request_body=VerifyCodeSerializer)
     def post(self, request):
         serializer = VerifyCodeSerializer(data=request.data)
-        if serializer.is_valid():   
+        if serializer.is_valid():
             code = serializer.validated_data['code']
 
             pending = PendingUser.objects.filter(
                 code=code, expires_at__gt=timezone.now()).first()
-            
-            existing_user = User.objects.filter(email=pending.email, is_active=False).first()
+
+            if not pending:
+                return Response({"error": "Código inválido o expirado."}, status=status.HTTP_400_BAD_REQUEST)
+
+            existing_user = User.objects.filter(
+                email=pending.email, is_active=False).first()
 
             if pending:
 
@@ -671,7 +680,7 @@ class VerifyPendingUserView(APIView):
                     existing_user.save()
 
                     # Reactivar vehículos
-                    #existing_user.vehicles.filter(is_active=False).update(is_active=True)
+                    # existing_user.vehicles.filter(is_active=False).update(is_active=True)
                 else:
                     user = User.objects.create(
                         name=pending.name,
@@ -744,23 +753,28 @@ class PasswordResetRequestView(APIView):
             return Response({"error": "No existe un usuario con ese correo."}, status=status.HTTP_404_NOT_FOUND)
 
         token = generate_reset_token(email)
-        reset_link = f"http://localhost:3000/reset-password?token={token}"
+        reset_link = f"http://localhost:5173/confirm-reset-password?token={token}"
 
-        send_mail(
+        # Enviar correo con el enlace de restablecimiento
+        send_code_email(
             subject='Recuperación de contraseña - UniRide',
             message=(
-                f"Hola,\n\n"
-                f"Haz clic en el siguiente enlace para restablecer tu contraseña:\n"
-                f"{reset_link}\n\n"
-                f"Este enlace expirará en 10 minutos.\n\n"
-                f"Si no solicitaste este cambio, puedes ignorar este mensaje."
+                f'Hola {user.name},<br>'
+                f'Solicitaste restablecer tu contraseña.<br>'
+                f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
             ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False
+            code=(
+                f'<a href="{reset_link}">Restablecer contraseña</a>'
+            ),
+            finalmessage=(
+                f'Este enlace expirará en 10 minutos.<br>'
+                f'Si no solicitaste este cambio, ignora este mensaje.<br>'
+                f'Gracias, el equipo de UniRide.'
+            ),
+            email=user.email
         )
 
-        return Response({"message": "Enlace de recuperación enviado al correo."}, status=status.HTTP_200_OK)
+        return Response({"message": "Se te ha enviado un codigo de recuperacion al correo."}, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmView(APIView):
@@ -768,6 +782,10 @@ class PasswordResetConfirmView(APIView):
 
     @swagger_auto_schema(request_body=PasswordResetConfirmSerializer)
     def post(self, request):
+
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         token = request.data.get('token')
         new_password = request.data.get('new_password')
 
@@ -807,3 +825,103 @@ class CambiarPasswordView(APIView):
             return generar_respuesta_con_tokens(user, message="Contraseña actualizada y sesión renovada.")
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ResendNewVerificationCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(request_body=ResendNewVerificationCodeSerializer)
+    def post(self, request):
+
+        serializer = ResendNewVerificationCodeSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = request.data.get('email')
+
+        if not email:
+            return Response({"error": "El campo email es obligatorio."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verifica que no exista ya como usuario activo
+        if User.objects.filter(email=email, is_active=True).exists():
+            return Response({"error": "Este usuario ya está verificado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Buscar el PendingUser
+        pending = PendingUser.objects.filter(email=email).first()
+        if not pending:
+            return Response({"error": "No se encontró un usuario pendiente con ese correo."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generar nuevo código
+        new_code = generate_verification_code()
+
+        # Actualizar el código y expiración
+        pending.code = new_code
+        pending.expires_at = timezone.now() + timedelta(minutes=15)
+        pending.save()
+
+        # Enviar el correo con el nuevo código
+        send_code_email(
+            subject="Nuevo Código de Verificación - UniRide",
+            message=(
+                f'Hola {pending.name},<br><br>'
+                f'Tu código de verificación ha sido regenerado, '
+                f'el nuevo código es:<br>'
+            ),
+            code=new_code,
+            finalmessage=(
+                f'Utiliza este código para completar tu registro. '
+                f'Este código expirará en 10 minutos.<br><br>'
+                f'Si no solicitaste este cambio, ignora este mensaje.<br><br>'
+                f'Gracias, el equipo de UniRide.'
+            ),
+            email=pending.email
+        )
+
+        return Response({"message": "Se ha generado y enviado un nuevo código de verificación."}, status=status.HTTP_200_OK)
+
+
+class ResendPasswordResetTokenView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(request_body=PasswordResetRequestSerializer)
+    def post(self, request):
+
+        serializer = PasswordResetRequestSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "El campo email es obligatorio."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=email, is_active=True).first()
+        if not user:
+            return Response({"error": "Usuario no encontrado o no activo."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generar un nuevo token de restablecimiento
+        token = generate_reset_token(email)
+        reset_link = f"http://localhost:3000/reset-password?token={token}"
+
+        # Enviar correo
+        send_code_email(
+            subject='Recuperación de contraseña (Nuevo link)- UniRide',
+            message=(
+                f'Hola {user.name},<br>'
+                f'Tu link de recuperación de contraseña ha sido regenerado.<br>'
+                f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
+            ),
+            code=(
+                f'<a href="{reset_link}">Restablecer contraseña</a>'
+            ),
+            finalmessage=(
+                f'Este enlace expirará en 10 minutos.<br>'
+                f'Si no solicitaste este cambio, ignora este mensaje.<br>'
+                f'Gracias,<br>'
+                f'El equipo de UniRide.'
+            ),
+            email=user.email
+        )
+
+        return Response({"message": "Se ha enviado un nuevo enlace para restablecer la contraseña."}, status=status.HTTP_200_OK)

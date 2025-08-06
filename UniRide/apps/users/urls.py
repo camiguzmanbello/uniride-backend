@@ -29,6 +29,6 @@ urlpatterns = [
     path('user-vehicles/', UserVehicleProfileView.as_view(), name='user_vehicles'),
     path("user-vehicles/<int:vehicle_id>/deactivate/", DeactivateSingleVehicleView.as_view(), name="deactivate-vehicle"),
     path("user-vehicles/deactivate-all/", DeactivateAllVehiclesView.as_view(), name="deactivate-all-vehicles"),
-
-    
+    path('register/resend-verification-code/', ResendNewVerificationCodeView.as_view(), name='resend-verification-code'),
+    path('auth/resend-password-reset/', ResendPasswordResetTokenView.as_view(), name='resend-password-reset'),
 ]
