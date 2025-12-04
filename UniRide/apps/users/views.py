@@ -197,6 +197,20 @@ class PerfilView(APIView):
 
 
 
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+from email.mime.image import MIMEImage
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+from pathlib import Path
+import os
+import random
+from datetime import timedelta
+from django.utils import timezone
+
 class PreRegisterAdminView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
@@ -211,21 +225,26 @@ class PreRegisterAdminView(APIView):
 
     @swagger_auto_schema(request_body=PendingAdminUserSerializer)
     def post(self, request):
+
+        # ========================
+        # SERIALIZER
+        # ========================
         serializer = PendingAdminUserSerializer(
-            data=request.data, context={'request': request})
+            data=request.data, context={'request': request}
+        )
         if not serializer.is_valid():
             return Response({'errors': serializer.errors}, status=400)
 
-
         email = serializer.validated_data["email"].lower()
         phone = self._normalize_phone_number(serializer.validated_data["phone"])
-
         name = serializer.validated_data["name"]
 
         code = self._generate_code()
         expires = timezone.now() + timedelta(minutes=10)
 
-        # ===== VALIDAR EN USUARIOS ACTIVOS =====
+        # ========================
+        # VALIDACIONES USER
+        # ========================
         user_qs = User.objects.filter(email__iexact=email)
         if user_qs.exists():
             user = user_qs.first()
@@ -237,15 +256,18 @@ class PreRegisterAdminView(APIView):
         elif User.objects.filter(phone=phone).exists():
             return Response({'error': 'Este número ya está en uso por otro usuario.'}, status=400)
 
-        # ===== VALIDAR EN PENDING USER =====
-        existing_pending = PendingUser.objects.filter(
-            email__iexact=email).first()
-        other_pending = PendingUser.objects.filter(
-            phone=phone).exclude(email__iexact=email).first()
+        # ========================
+        # VALIDACIONES PENDING
+        # ========================
+        existing_pending = PendingUser.objects.filter(email__iexact=email).first()
+        other_pending = PendingUser.objects.filter(phone=phone).exclude(email__iexact=email).first()
+
         if other_pending:
             return Response({'error': 'Este número ya está en uso por otro preregistro.'}, status=400)
 
-        # ===== ACTUALIZAR O CREAR PENDING USER =====
+        # ========================
+        # CREAR / ACTUALIZAR PENDING
+        # ========================
         if existing_pending:
             existing_pending.name = name
             existing_pending.phone = phone
@@ -263,26 +285,47 @@ class PreRegisterAdminView(APIView):
                 registrado_por=request.user
             )
 
-        # ===== ENVIAR CORREO =====
-        confirmation_url = f"https://tuapp.com/confirmar-admin/{code}/"
-        send_mail(
-            subject='¡Confirma tu registro como Administrador en UniRide!',
-            message=(
-                f"Hola,\n\n"
-                f"¡Bienvenido a UniRide!\n\n"
-                f"Has sido registrado como administrador en nuestra plataforma. Para completar tu registro, por favor utiliza el siguiente código de verificación:\n\n"
-                f"🔐 Código: {code}\n\n"
-                f"Y haz clic en el siguiente enlace para confirmar tu cuenta:\n"
-                f"{confirmation_url}\n\n"
-                f"Este enlace expirará en 10 minutos.\n\n"
-                f"Gracias por formar parte del equipo,\n"
-                f"El equipo de UniRide 🚗"
-            ),
+        # ===========================
+        # CORREO HTML CON LOGO
+        # ===========================
+
+        confirmation_url = f"http://localhost:5173/confirm-admin/"
+
+        logo_path = Path(settings.BASE_DIR) / "email_assets" / "logo-uniride2.png"
+        
+
+        # Renderizar HTML
+        html_content = render_to_string("preregister.html", {
+            "name": name,
+            "code": code,
+            "confirmation_url": confirmation_url,
+        })
+
+        text_content = strip_tags(html_content)
+
+        email_message = EmailMultiAlternatives(
+            subject="¡Confirma tu registro como Administrador en UniRide!",
+            body=text_content,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
+            to=[email],
         )
 
-        return Response({'message': 'Correo de confirmación enviado o reenviado.'}, status=200)
+        email_message.attach_alternative(html_content, "text/html")
+
+        
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                logo_data = f.read()
+            email_image = MIMEImage(logo_data)
+            email_image.add_header("Content-ID", "<logo>")
+            email_message.attach(email_image)   # ← CORREGIDO
+        else:
+            print("WARNING: Logo no encontrado:", logo_path)
+
+        # Enviar correo
+        email_message.send()
+
+        return Response({"message": "Correo de confirmación enviado o reenviado."}, status=200)
 
 
 class ConfirmAdminView(APIView):
@@ -291,23 +334,68 @@ class ConfirmAdminView(APIView):
     @swagger_auto_schema(request_body=ConfirmAdminSerializer)
     def post(self, request):
         serializer = ConfirmAdminSerializer(
-            data=request.data, context={'request': request})
+            data=request.data, context={'request': request}
+        )
         if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
+            # Unificar errores para frontend
+            formatted_errors = {}
+            for key, value in serializer.errors.items():
+                formatted_errors[key] = value
+            return Response(formatted_errors, status=400)
 
         code = serializer.validated_data['code']
         password = serializer.validated_data['password']
+        confirm_password = serializer.validated_data.get('confirm_password')
 
+        # ================================
+        # VALIDACIÓN DE CONTRASEÑA
+        # ================================
+        if password != confirm_password:
+            return Response(
+                {"confirm_password": ["Las contraseñas no coinciden."]},
+                status=400
+            )
+
+        # ================================
+        # VALIDACIONES DEL CÓDIGO
+        # ================================
+        if not code.isdigit():
+            return Response(
+                {"code": ["El código debe contener solo números."]},
+                status=400
+            )
+
+        if len(code) != 6:
+            return Response(
+                {"code": ["El código debe tener exactamente 6 dígitos."]},
+                status=400
+            )
+
+        # ================================
+        # BUSCAR EL PENDING USER
+        # ================================
         try:
             pending = PendingUser.objects.get(
-                code=code, expires_at__gt=timezone.now())
+                code=code, expires_at__gt=timezone.now()
+            )
         except PendingUser.DoesNotExist:
-            return Response({"error": "Código inválido o expirado"}, status=400)
+            return Response(
+                {"code": ["Código inválido o expirado."]},
+                status=400
+            )
 
+        # ================================
+        # VALIDAR QUE SEA ADMIN
+        # ================================
         if pending.role_id_id != 1:
-            return Response({"error": "No tienes permiso para confirmar esta cuenta."}, status=403)
+            return Response(
+                {"detail": "No tienes permiso para confirmar esta cuenta."},
+                status=403
+            )
 
-        # Si ya existe un usuario con ese email y está inactivo → reactivarlo
+        # ================================
+        # ACTIVAR O CREAR USUARIO
+        # ================================
         try:
             user = User.objects.get(email__iexact=pending.email)
             if not user.is_active:
@@ -319,10 +407,12 @@ class ConfirmAdminView(APIView):
                 user.role_id_id = 1
                 user.save()
             else:
-                return Response({"error": "Este usuario ya está activo."}, status=400)
-
+                return Response(
+                    {"detail": "Este usuario ya está activo."},
+                    status=400
+                )
         except User.DoesNotExist:
-            # Si no existe, crear nuevo usuario
+            # Crear nuevo usuario
             user = User.objects.create_user(
                 name=pending.name,
                 username=pending.email,
@@ -333,22 +423,25 @@ class ConfirmAdminView(APIView):
                 is_staff=True,
                 role_id_id=1,
             )
-            # ConfirmAdminView - después de activar o crear el usuario
 
+            # Registrar auditoría
             registrar_log(
                 actor=pending.registrado_por,
                 action="ACCION_REGISTRO_ADMIN",
                 target_user=user,
-                reason='Confirmación de cuenta de administrador desde preregistro',
+                reason="Confirmación de cuenta de administrador desde preregistro",
                 extra_data={'email': user.email, 'phone': user.phone},
             )
-        # Eliminar el registro pendiente
+
+        # ================================
+        # ELIMINAR PREREGISTRO
+        # ================================
         pending.delete()
 
-        return Response({"message": "Cuenta de administrador confirmada con éxito."})
-
-# Borra ambas cookies
-
+        return Response(
+            {"message": "Cuenta de administrador confirmada con éxito."},
+            status=200
+        )
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]

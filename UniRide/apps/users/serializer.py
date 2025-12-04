@@ -100,8 +100,7 @@ class ConfirmAdminSerializer(serializers.Serializer):
             context_user=self.context['request'].user
         )
 
-        data["password"] = validated_password  # opcional, si quieres guardarla ya validada
-        
+        data["password"] = validated_password  
         return data
 
 class UserMeSerializer(serializers.ModelSerializer):
