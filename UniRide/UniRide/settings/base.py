@@ -158,12 +158,14 @@ SWAGGER_SETTINGS = {
     'USE_SESSION_AUTH': False,
 }
 
-
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'kevin01517ar@gmail.com'         
-EMAIL_HOST_PASSWORD = 'babl ilvr yfwl rgqf'      
+
+EMAIL_HOST_USER = 'uniridefacatativa@gmail.com'         
+EMAIL_HOST_PASSWORD = 'fqtr giss kecm idjh'      
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+
+BASE_DIR = Path(__file__).resolve().parent.parent
