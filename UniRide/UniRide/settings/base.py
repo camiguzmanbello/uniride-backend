@@ -1,5 +1,10 @@
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +42,8 @@ INSTALLED_APPS = [
     'apps.ratings',
     'apps.trips',
     'drf_yasg',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -167,5 +174,16 @@ EMAIL_HOST_USER = 'uniridefacatativa@gmail.com'
 EMAIL_HOST_PASSWORD = 'fqtr giss kecm idjh'      
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+# Usar Cloudinary para archivos de media
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+    'secure': True,
+}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+

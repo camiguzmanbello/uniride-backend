@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from cloudinary_storage.storage import MediaCloudinaryStorage
 
 
 class Role(models.Model):
@@ -17,7 +18,7 @@ class User(AbstractUser):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=13, unique=True, null=True, blank=True)
-    profile_image = models.TextField(null=True, blank=True)
+    profile_image = models.ImageField(upload_to='profile_pictures/', storage=MediaCloudinaryStorage(), null=True, blank=True)
     is_active = models.BooleanField(default=True)
     role_id = models.ForeignKey(Role, on_delete=models.PROTECT, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
@@ -50,7 +51,7 @@ class PendingUser(models.Model):
     phone = models.CharField(max_length=13)
     password = models.CharField(max_length=128)  # Guardar el hash
     role_id = models.ForeignKey('Role', on_delete=models.PROTECT, null=True)
-    profile_image = models.TextField(null=True, blank=True)
+    profile_image = models.ImageField(upload_to='pending_profile_images/', null=True, blank=True)
     code = models.CharField(max_length=6)
     expires_at = models.DateTimeField()
     created_at = models.DateTimeField(default=timezone.now)

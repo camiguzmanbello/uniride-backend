@@ -152,12 +152,21 @@ class PendingUserSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+
         # Eliminar antes de crear la instancia
         validated_data.pop('confirm_password')
+
+        # Asignar rol por defecto si no se proporciona
         if 'role_id' not in validated_data or validated_data['role_id'] is None:
             validated_data['role_id'] = Role.objects.get(name='Usuario')
+
+
+
+        # Crear el PendingUser
         pendinguser = PendingUser.objects.create(**validated_data)
+
         return pendinguser
+        
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -180,13 +189,26 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        if 'role_id' not in validated_data or validated_data['role_id'] is None:
-            validated_data['role_id'] = Role.objects.get(name='Usuario')
+
+       # Asignar rol por defecto
+        validated_data.setdefault(
+            'role_id', Role.objects.get(name='Usuario')
+        )
+
         # Generar username si no viene
-        if 'username' not in validated_data or not validated_data['username']:
-            validated_data['username'] = validated_data['email']
-        user = User.objects.create_user(**validated_data)
+        validated_data.setdefault('username', validated_data['email'])
+
+        # Guardar contraseña
+        raw_password = validated_data.pop("password")
+
+
+        # Crear usuario NORMAL, no create_user
+        user = User.objects.create(**validated_data)
+        user.set_password(raw_password)
+        user.save()
+
         return user
+
 
 
 class VehicleTypeSerializer(serializers.ModelSerializer):
