@@ -1,4 +1,4 @@
-# o desde donde la hayas definido
+import cloudinary
 from .authentication import CookieJWTAuthentication
 from .utils.audit import registrar_log
 from .utils.jwt_cookies import generar_respuesta_con_tokens, set_tokens_en_response
@@ -27,6 +27,7 @@ from django.contrib.auth.hashers import make_password
 from apps.core.token_generation import generate_reset_token, verify_reset_token
 from rest_framework.exceptions import ValidationError
 from apps.users.utils.utils import generate_verification_code, send_code_email
+from rest_framework.parsers import MultiPartParser, FormParser # Para manejar archivos en requests
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -368,7 +369,7 @@ class LogoutView(APIView):
 
 
 class RoleView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         roles = Role.objects.all()
@@ -412,6 +413,7 @@ class UserView(APIView):
 class RegisterView(APIView):
 
     permission_classes = [permissions.AllowAny]
+    parser_classes = (MultiPartParser, FormParser)
 
     def _validate_user_existence(self, request, email, phone):
         status_err = status.HTTP_409_CONFLICT
@@ -461,13 +463,23 @@ class RegisterView(APIView):
                 serializer.validated_data['password'])
 
             # Crear usuario temporal
+            # Obtener el rol 'Usuario' por defecto, lanzando excepción clara si no existe
+            try:
+                default_role = Role.objects.get(name='Usuario')
+            except Role.DoesNotExist:
+                logger.error("Rol 'Usuario' no encontrado en la base de datos")
+                return Response(
+                    {"error": "Error de configuración: rol de usuario no disponible"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
             pending = PendingUser.objects.create(
                 name=serializer.validated_data['name'],
                 email=email,
                 phone=phone,
                 password=hashed_password,
-                role_id=Role.objects.filter(name='Usuario').first() or None,
-                profile_image=serializer.validated_data.get('profile_image'),
+                role_id=default_role,
+                profile_image=request.FILES.get('profile_image'),
                 code=code,
                 expires_at=expiration
             )
@@ -667,45 +679,71 @@ class VerifyPendingUserView(APIView):
     @swagger_auto_schema(request_body=VerifyCodeSerializer)
     def post(self, request):
         serializer = VerifyCodeSerializer(data=request.data)
-        if serializer.is_valid():
-            code = serializer.validated_data['code']
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            pending = PendingUser.objects.filter(
-                code=code, expires_at__gt=timezone.now()).first()
+        code = serializer.validated_data['code']
 
-            if not pending:
-                return Response({"error": "Código inválido o expirado."}, status=status.HTTP_400_BAD_REQUEST)
+        pending = PendingUser.objects.filter(
+            code=code,
+            expires_at__gt=timezone.now()
+        ).first()
 
-            existing_user = User.objects.filter(
-                email=pending.email, is_active=False).first()
+        if not pending:
+            return Response({"error": "Código inválido o expirado."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-            if pending:
+        # SUBIR FOTO A CLOUDINARY SOLO SI EXISTE
+        profile_image_url = None
+        if pending.profile_image:
+            upload_result = cloudinary.uploader.upload(pending.profile_image)
+            profile_image_url = upload_result.get("secure_url")
 
-                if existing_user:
-                    # Reactivar usuario
-                    existing_user.is_active = True
-                    existing_user.name = pending.name
-                    existing_user.phone = pending.phone
-                    existing_user.password = pending.password
-                    existing_user.save()
+        # Buscar si el usuario existía pero estaba inactivo
+        existing_user = User.objects.filter(
+            email=pending.email,
+            is_active=False
+        ).first()
 
-                    # Reactivar vehículos
-                    # existing_user.vehicles.filter(is_active=False).update(is_active=True)
-                else:
-                    user = User.objects.create(
-                        name=pending.name,
-                        email=pending.email,
-                        phone=pending.phone,
-                        password=pending.password,  # Ya hasheada
-                        role_id=pending.role_id,
-                        profile_image=pending.profile_image,
-                        is_verified=True
-                    )
-                pending.delete()
-                return Response({"message": "Usuario creado y verificado exitosamente."}, status=status.HTTP_201_CREATED)
+        if existing_user:
+            existing_user.is_active = True
+            existing_user.name = pending.name
+            existing_user.phone = pending.phone
+            existing_user.password = pending.password
+            existing_user.role_id = pending.role_id
 
-            return Response({"error": "Código inválido o expirado."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if profile_image_url:
+                existing_user.profile_image = profile_image_url
+
+            existing_user.save()
+
+        else:
+            if not pending.role_id:
+                logger.error(f"PendingUser {pending.email} no tiene role_id asignado")
+                return Response(
+                    {"error": "Error: usuario pendiente sin rol asignado"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            user = User(
+                name=pending.name,
+                email=pending.email,
+                phone=pending.phone,
+                password=pending.password,  # ya hasheada
+                role_id=pending.role_id,
+                profile_image=profile_image_url,
+                is_verified=True,
+                username=pending.email
+            )
+            user.save()
+
+        # BORRAR EL PENDINGUSER Y SU IMAGEN LOCAL
+        pending.delete()
+
+        return Response(
+            {"message": "Usuario creado y verificado exitosamente."},
+            status=status.HTTP_201_CREATED
+        )
 
 
 class UserEditDeleteView(RetrieveUpdateDestroyAPIView):
