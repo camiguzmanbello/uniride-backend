@@ -5,24 +5,46 @@ from apps.trips.models import Publication
 
 
 class Chat(models.Model):
-    publication_id = models.ForeignKey(Publication, on_delete=models.CASCADE, related_name='chats')
-    passenger_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chats_as_passenger')
-    driver_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chats_as_driver')
+    # Referencia opcional a la publicación origen.
+    # Puede ser una oferta (type_id==2) o una solicitud (type_id==1)
+    publication = models.ForeignKey(
+        Publication,
+        on_delete=models.CASCADE,
+        related_name='chats'
+    )
+
+    passenger = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chats_as_passenger'
+    )
+    driver = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chats_as_driver'
+    )
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     closed_at = models.DateTimeField(null=True, blank=True)
+    
+    trip_passenger = models.OneToOneField(
+        'trips.TripPassenger',
+        on_delete=models.CASCADE,
+        related_name='chat',
+        null=True,
+        blank=True
+    )
 
     class Meta:
-        unique_together = ('publication_id', 'passenger_id')
+        # Un pasajero sólo puede tener un chat por publicación
+        unique_together = ('publication', 'passenger')
         indexes = [
             models.Index(fields=['is_active']),
         ]
-        verbose_name = 'Chat'
-        verbose_name_plural = 'Chats'
 
     def __str__(self):
-        return f"Chat entre {self.passenger_id.name} y {self.driver_id.name} (Pub ID: {self.publication_id.id})"
-
+        return f"Chat: pub={self.publication_id} passenger={self.passenger_id} driver={self.driver_id}"
 
 class Message(models.Model):
     chat_id = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='messages')
@@ -30,6 +52,8 @@ class Message(models.Model):
     content = models.TextField()
     is_quick_message = models.BooleanField(default=False)
     sent_at = models.DateTimeField(default=timezone.now)
+    is_read = models.BooleanField(default=False)
+
 
     class Meta:
         indexes = [

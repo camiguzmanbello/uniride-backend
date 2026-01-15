@@ -5,6 +5,7 @@ from .views import *
 router = DefaultRouter()
 router.register(r'vehicle-types', VehicleTypeView, basename='vehicle-types')
 router.register(r'vehicles', VehicleView, basename='vehicles')
+router.register(r'users', UserView, basename='users')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -16,7 +17,6 @@ urlpatterns = [
     path("Logout/", LogoutView.as_view(), name="logout"),
     path("Admin/register/", PreRegisterAdminView.as_view(), name="register_admin"),
     path("ConfirmRegisterAdmin/", ConfirmAdminView.as_view(), name="confirm_admin"),
-    path("Users/", UserView.as_view(), name="registrerUser"),
     path("roles/", RoleView.as_view(), name="roles"),
     path('UserActions/<int:pk>/', UserEditDeleteView.as_view(), name='user_detail_edit_delete'),
     path('register/', RegisterView.as_view(), name='register'),
