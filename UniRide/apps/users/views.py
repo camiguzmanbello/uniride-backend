@@ -28,6 +28,7 @@ from apps.core.token_generation import generate_reset_token, verify_reset_token
 from rest_framework.exceptions import ValidationError
 from apps.users.utils.utils import generate_verification_code, send_code_email
 from rest_framework.parsers import MultiPartParser, FormParser # Para manejar archivos en requests
+from .utils.cloudinary_utils import delete_cloudinary_image, extract_public_id_from_url
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -481,26 +482,12 @@ class RoleView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserView(APIView):
+class UserView(viewsets.ModelViewSet):
     # debe ser solo para admins
     permission_classes = [permissions.AllowAny]
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
-    @swagger_auto_schema(request_body=UserSerializer)
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save(is_verified=False)
-
-            return Response({
-                "message": "Usuario creado exitosamente.",
-                "user": serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request):
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class RegisterView(APIView):
@@ -611,14 +598,51 @@ class UserSelfProfileView(RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+    def update(self, request, *args, **kwargs):
+        user = self.get_object()
+        old_image_url = None
+        
+        # Obtener URL completa de la imagen anterior
+        if user.profile_image:
+            old_image_url = user.profile_image.url
+        
+        # Realizar la actualización
+        response = super().update(request, *args, **kwargs)
+        
+        # Obtener usuario actualizado
+        updated_user = self.get_object()
+        new_image_url = updated_user.profile_image.url if updated_user.profile_image else None
+        
+        # Verificar si realmente cambió la imagen
+        if old_image_url and new_image_url:
+            # Extraer public_ids para comparación robusta
+            old_public_id = extract_public_id_from_url(old_image_url)
+            new_public_id = extract_public_id_from_url(new_image_url)
+            
+            # Solo borrar si son imágenes completamente diferentes
+            if old_public_id and new_public_id and old_public_id != new_public_id:
+                delete_cloudinary_image(old_image_url)
+        elif old_image_url and not new_image_url:
+            # Caso: Se eliminó la imagen (se estableció a None)
+            delete_cloudinary_image(old_image_url)
+        
+        return response
+
+
     def delete(self, request, *args, **kwargs):
         user = self.get_object()
         user.is_active = False
+
+        if user.profile_image:
+            delete_cloudinary_image(str(user.profile_image))
+            user.profile_image = None
+
         user.save()
-        # Soft delete de todos los vehículos del usuario
+        # Soft delete de relaciones
         user.vehicles.filter(is_active=True).update(is_active=False)
+        user.publications.filter(is_active=True).update(is_active=False)
         return Response(
-            {"message": "Usuario desactivado exitosamente junto con sus vehiculos."},
+            {"message": "Usuario desactivado exitosamente junto con sus demas relaciones."},
             status=status.HTTP_204_NO_CONTENT
         )
 
@@ -681,7 +705,7 @@ class VehicleView(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.request.method == 'POST':
             return [IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
 
     def create(self, request, *args, **kwargs):
         plate = request.data.get("plate")
@@ -791,6 +815,8 @@ class VerifyPendingUserView(APIView):
         if pending.profile_image:
             upload_result = cloudinary.uploader.upload(pending.profile_image)
             profile_image_url = upload_result.get("secure_url")
+        else:
+            profile_image_url = settings.DEFAULT_PROFILE_IMAGE
 
         # Buscar si el usuario existía pero estaba inactivo
         existing_user = User.objects.filter(
@@ -804,6 +830,8 @@ class VerifyPendingUserView(APIView):
             existing_user.phone = pending.phone
             existing_user.password = pending.password
             existing_user.role_id = pending.role_id
+
+
 
             if profile_image_url:
                 existing_user.profile_image = profile_image_url
