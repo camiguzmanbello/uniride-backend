@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>{{ report_title }}</title>
+
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    color: #333;
+}
+
+.header-table {
+    width: 100%;
+    border-bottom: 2px solid #1A4D45;
+    margin-bottom: 18px;
+}
+
+.logo { width: 80px; }
+
+.title {
+    font-size: 16px;
+    color: #1A4D45;
+    font-weight: bold;
+}
+
+.meta {
+    font-size: 10px;
+    color: #555;
+}
+
+.role-title {
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #1A4D45;
+    margin: 22px 0 6px;
+}
+
+.role-divider {
+    width: 60%;
+    margin: 0 auto 14px;
+    border-bottom: 1px solid #CFE3DF;
+}
+
+.user-card {
+    border: 1px solid #E2E8E6;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    background: #FAFCFB;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.user-left {
+    width: 32%;
+    vertical-align: top;
+    border-right: 1px solid #E5EFEA;
+    padding-right: 10px;
+}
+
+.user-right {
+    width: 68%;
+    vertical-align: top;
+    padding-left: 10px;
+}
+
+.user-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: #1A4D45;
+}
+
+.user-meta {
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.vehicle-chip {
+    display: inline-block;
+    background: #E6F4F1;
+    border: 1px solid #BFE3DA;
+    color: #1A4D45;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 9px;
+    margin: 3px 6px 3px 0;
+}
+
+.page-break { page-break-after: always; }
+
+.summary {
+    font-size: 11px;
+    margin-top: 16px;
+}
+
+.empty {
+    text-align: center;
+    font-size: 11px;
+    color: #6B7280;
+    margin: 30px 0;
+}
+</style>
+</head>
+
+<body>
+
+<table class="header-table">
+    <tr>
+        <td width="20%" align="center">
+            <img src="reports_assets/uniride_logo.png" class="logo" />
+        </td>
+        <td width="80%">
+            <div class="title">{{ report_title }}</div>
+            <div class="meta">{{ report_subtitle }}</div>
+            <div class="meta">
+                Generado el {{ generated_at }} por {{ generated_by }}
+            </div>
+        </td>
+    </tr>
+</table>
+
+{% if grouped_users %}
+    {% for role, users in grouped_users.items %}
+        <div class="role-title">{{ role|upper }}</div>
+        <div class="role-divider"></div>
+
+        {% for user in users %}
+        <div class="user-card">
+            <table class="user-table">
+                <tr>
+                    <td class="user-left">
+                        <div class="user-name">{{ user.name }}</div>
+                        <div class="user-sub">{{ role }}</div>
+                    </td>
+                    <td class="user-right">
+                        <div class="user-meta"><strong>Email:</strong> {{ user.email }}</div>
+                        <div class="user-meta"><strong>Teléfono:</strong> {{ user.phone|default:"—" }}</div>
+                        <div class="user-meta"><strong>Registro:</strong> {{ user.created_at|date:"d/m/Y" }}</div>
+
+                        {#  Vehículos solo para usuarios #}
+                        {% if role == "Usuario" and user.vehicles.all|length %}
+                        <div class="user-meta">
+                            <strong>Vehículos:</strong>
+                            {% for v in user.vehicles.all %}
+                                <span class="vehicle-chip">
+                                    {{ v.brand }} {{ v.model }} · {{ v.plate }} · {{ v.color }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {# Información de creación del administrador #}
+                        {% if role == "Administrador" %}
+                            {% for log in confirm_logs %}
+                                {% if log.target_user.id == user.id %}
+                                    <div class="user-meta" style="margin-top:6px;">
+                                        <strong>Registrado por:</strong>
+                                        {{ log.actor.name }} ({{ log.actor.email }})
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+
+                </tr>
+            </table>
+        </div>
+
+        {% if forloop.counter|divisibleby:6 %}
+            <div class="page-break"></div>
+        {% endif %}
+        {% endfor %}
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        No existen usuarios activos registrados en el sistema.
+    </div>
+{% endif %}
+
+
+
+<p class="summary">
+<strong>Total de usuarios:</strong> {{ total_users }}
+</p>
+
+</body>
+</html>

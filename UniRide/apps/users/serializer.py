@@ -1,12 +1,17 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from apps.users.models import User, Role, PendingUser, Vehicle, VehicleType
+from apps.ratings.models import Rating
+from apps.complaints.models import Complaint, ComplaintType
+from apps.trips.models import Trip, TripPassenger
+from apps.users.models import User, Role, PendingUser, Vehicle, VehicleType, UserSuspension
+from django.utils import timezone
 from .utils.validate_password import validar_password_y_confirmacion
 from django.contrib.auth import get_user_model
 from .utils.validations import validate_phone_number, validate_email, validate_name
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
 User = get_user_model()
+from django.db.models import Avg
 
 
 class CustomTokenSerializer(TokenObtainPairSerializer):
@@ -168,7 +173,6 @@ class PendingUserSerializer(serializers.ModelSerializer):
         return pendinguser
         
 
-
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -210,7 +214,6 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-
 class VehicleTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleType
@@ -219,6 +222,7 @@ class VehicleTypeSerializer(serializers.ModelSerializer):
 
 
 class VehicleSerializer(serializers.ModelSerializer):
+    type = serializers.CharField(source='type_id.name', read_only=True)
     class Meta:
         model = Vehicle
         fields = '__all__'
@@ -251,3 +255,214 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class ResendNewVerificationCodeSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
+# Administar Usuario
+# Quejas
+class AdminComplaintSerializer(serializers.ModelSerializer):
+    type = serializers.CharField(source='type_id.name')
+    status = serializers.CharField(source='status_id.name')
+    reporter = serializers.CharField(source='reporter_id.email')
+    admin = serializers.CharField(source='admin_id.email', allow_null=True)
+    reported_user = serializers.SerializerMethodField()
+    class Meta:
+        model = Complaint
+        fields = [
+            'id',
+            'type',
+            'status',
+            'description',
+            'created_at',
+            'resolved_at',
+            'reporter',
+            'admin',
+            'reported_user',
+        ]
+    def get_reported_user(self, obj):
+        if obj.reported_user_id:
+            return obj.reported_user_id.email
+        return None
+# Viajes
+class AdminTripHistorySerializer(serializers.Serializer):
+    trip_id = serializers.IntegerField()
+    role = serializers.CharField()  # 'driver' | 'passenger'
+    status = serializers.CharField()
+    departure_place = serializers.CharField()
+    destination = serializers.CharField()
+    departure_datetime = serializers.DateTimeField()
+class AdminRatingSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Rating
+        fields = [
+            'id',
+            'trip_id',
+            'stars',
+            'comment',
+            'reviewer_name',
+            'created_at',
+        ]
+
+    def get_reviewer_name(self, obj):
+        return f"{obj.reviewer_id.name}"
+
+
+class AdminUserDetailSerializer(serializers.ModelSerializer):
+    vehicles = VehicleSerializer(many=True, read_only=True)
+
+    complaints = serializers.SerializerMethodField()
+    trip_history = serializers.SerializerMethodField()
+    ratings = serializers.SerializerMethodField()
+    rating_average = serializers.SerializerMethodField()
+    suspension_info = serializers.SerializerMethodField()
+    complaints_made = serializers.SerializerMethodField()
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'name',
+            'phone',
+            'created_at',
+            'email',
+            'is_active',
+            'profile_image',
+            'is_suspended',
+            'suspension_info',  
+            'vehicles',
+            'complaints',
+            'complaints_made',
+            'trip_history',
+            'rating_average',
+            'ratings',
+        ]
+
+    def get_complaints(self, user):
+        base_qs = Complaint.objects.filter(
+            reported_user_id=user
+        ).select_related(
+            'type_id', 'status_id', 'reporter_id', 'admin_id'
+        )
+
+        pending = base_qs.filter(status_id__id=1)
+        resolved = base_qs.filter(status_id__id__in=[2, 3])
+
+        return {
+            "pending_count": pending.count(),
+            "resolved_count": resolved.count(),
+            "pending": AdminComplaintSerializer(pending, many=True).data,
+            "resolved": AdminComplaintSerializer(resolved, many=True).data,
+        }
+    def get_complaints_made(self, user):
+        qs = Complaint.objects.filter(
+            reporter_id=user
+        ).select_related(
+            'type_id',
+            'status_id',
+            'reported_user_id',
+            'admin_id'
+        ).order_by('-created_at')
+
+        result = {}
+
+        for complaint_type in ComplaintType.objects.all():
+            type_qs = qs.filter(type_id=complaint_type)
+
+            pending = type_qs.filter(status_id__id=1)
+            resolved = type_qs.filter(status_id__id__in=[2, 3])
+
+            result[complaint_type.name.lower()] = {
+                "total": type_qs.count(),
+                "pending_count": pending.count(),
+                "resolved_count": resolved.count(),
+                "pending": AdminComplaintSerializer(pending, many=True).data,
+                "resolved": AdminComplaintSerializer(resolved, many=True).data,
+            }
+
+        return result
+
+
+    def get_trip_history(self, user):
+        history = []
+
+        # 🔹 Como conductor
+        driver_trips = Trip.objects.filter(
+            driver_id=user
+        ).select_related(
+            'status_id', 'publication_id'
+        )
+
+        for trip in driver_trips:
+            history.append({
+                "trip_id": trip.id,
+                "role": "Conductor",
+                "status": trip.status_id.name,
+                "departure_place": trip.publication_id.departure_place,
+                "destination": trip.publication_id.destination,
+                "departure_datetime": trip.publication_id.departure_datetime,
+            })
+
+        # 🔹 Como pasajero
+        passenger_trips = TripPassenger.objects.filter(
+            passenger_id=user
+        ).select_related(
+            'trip_id__status_id',
+            'trip_id__publication_id'
+        )
+
+        for tp in passenger_trips:
+            history.append({
+                "trip_id": tp.trip_id.id,
+                "role": "Pasajero",
+                "status": tp.status_id.name,
+                "departure_place": tp.trip_id.publication_id.departure_place,
+                "destination": tp.trip_id.publication_id.destination,
+                "departure_datetime": tp.trip_id.publication_id.departure_datetime,
+            })
+
+        return history
+    def get_ratings(self, user):
+        ratings = Rating.objects.filter(
+            reviewed_id=user
+        ).select_related(
+            'reviewer_id',
+            'trip_id'
+        ).order_by('-created_at')
+
+        return AdminRatingSerializer(ratings, many=True).data
+
+    def get_rating_average(self, user):
+        avg = Rating.objects.filter(
+            reviewed_id=user
+        ).aggregate(avg=Avg('stars'))['avg']
+
+        return round(avg, 2) if avg else None
+
+    def get_suspension_info(self, user):
+        now = timezone.now()
+
+        suspension = UserSuspension.objects.filter(
+            user_id=user
+        ).order_by('-start_date').first()
+
+        if not suspension:
+            return None
+
+        # Permanente
+        if suspension.is_permanent:
+            return {
+                "is_permanent": True,
+                "remaining_days": None,
+                "reason": suspension.reason,
+            }
+
+        # Temporal
+        if suspension.end_date and suspension.end_date > now:
+            remaining_days = (suspension.end_date.date() - now.date()).days
+            return {
+                "is_permanent": False,
+                "remaining_days": max(remaining_days, 0),
+                "reason": suspension.reason,
+            }
+
+        return None
+

@@ -16,18 +16,24 @@ from drf_yasg.utils import swagger_auto_schema
 from django.contrib.auth import get_user_model
 import logging
 from apps.users.serializer import *
-from apps.users.models import User, Role, PendingUser
+from apps.users.models import User, Role, PendingUser, UserSuspension, AuditLog
 from apps.users.permissions import IsSelfOrAdmin
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, RetrieveUpdateAPIView
-from django.core.mail import send_mail
 import random
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 from apps.core.token_generation import generate_reset_token, verify_reset_token
 from rest_framework.exceptions import ValidationError
-from apps.users.utils.utils import generate_verification_code, send_code_email
+from apps.users.utils.utils import generate_verification_code, send_code_email, send_suspension_email
 from rest_framework.parsers import MultiPartParser, FormParser # Para manejar archivos en requests
+from django.utils import timezone
+from datetime import timedelta
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from apps.complaints.models import Complaint
+from apps.users.utils.suspension_service import check_and_handle_suspension
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -46,11 +52,37 @@ class LoginView(APIView):
             password = serializer.validated_data["password"]
 
             user = authenticate(request, email=email, password=password)
-
             if user is not None:
+                # 🔍 Chequear suspensión
+                suspension_info = check_and_handle_suspension(user)
+                if suspension_info:
+                    if suspension_info["is_permanent"]:
+                        message = "Tu cuenta está suspendida de forma permanente."
+                    else:
+                        days = suspension_info["remaining_days"]
+                        message = f"Tu cuenta está suspendida por {days} día(s)." if days is not None else \
+                                "Tu cuenta está suspendida temporalmente."
+                    registrar_log(
+                        actor=user,
+                        action="LOGIN_BLOQUEADO_SUSPENSION",
+                        extra_data={
+                            "reason": suspension_info["reason"],
+                            "remaining_days": suspension_info["remaining_days"]
+                        }
+                    )
+
+                    return Response(
+                        {
+                            "error": message,
+                            "reason": suspension_info["reason"],
+                            "remaining_days": suspension_info["remaining_days"]
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+                # Login normal
                 user.last_login = now()
                 user.save(update_fields=["last_login"])
-
                 registrar_log(
                     actor=user,
                     action="LOGIN_EXITOSO",
@@ -58,11 +90,8 @@ class LoginView(APIView):
                         "ip": request.META.get("REMOTE_ADDR"),
                         "user_agent": request.META.get("HTTP_USER_AGENT")
                     }
-
                 )
-
                 return generar_respuesta_con_tokens(user, message="Login exitoso")
-
             registrar_log(
                 actor=None,
                 action="LOGIN_FALLIDO",
@@ -73,7 +102,6 @@ class LoginView(APIView):
                     "email": email
                 }
             )
-
             return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         except ValidationError as e:
@@ -96,8 +124,6 @@ class UserMeView(APIView):
         return Response(serializer.data)
 
 # Hace que el usuario no tenga que hacer el proceso de login ya que lo hace automaticamente
-
-
 class RefreshTokenView(APIView):
     def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
@@ -1066,3 +1092,181 @@ class ResendPasswordResetTokenView(APIView):
         )
 
         return Response({"message": "Se ha enviado un nuevo enlace para restablecer la contraseña."}, status=status.HTTP_200_OK)
+
+# administrar usuarios admin
+
+# 1. Filtrar Usuarios por correo o nombre 
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAdminUser
+from django.db.models import Q
+
+class AdminUserListView(ListAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = UserSerializer
+    def get_queryset(self):
+        search = self.request.query_params.get("search", "")
+
+        queryset = User.objects.filter(
+            is_active=True,
+            is_staff=False  # excluye admins
+        )
+
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(email__icontains=search)
+            )
+
+        return queryset
+# 2. Ver perfil completo del usuario + vehículos
+from rest_framework.generics import RetrieveAPIView
+
+class AdminUserDetailView(RetrieveAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminUserDetailSerializer
+    queryset = User.objects.all()
+    
+# 3. Suspender usuario (soft delete)
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from datetime import timedelta
+
+
+from datetime import timedelta
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def suspend_user(request, id):
+    admin = request.user
+    user = get_object_or_404(User, id=id)
+
+    # ========================
+    # DATOS
+    # ========================
+    complaint_ids = request.data.get('complaint_ids', [])
+    is_permanent = request.data.get('is_permanent', False)
+    days = request.data.get('days')
+    reason = request.data.get('reason')
+
+    # ========================
+    # VALIDACIONES BÁSICAS
+    # ========================
+    if not complaint_ids:
+        return Response(
+            {"detail": "Debe seleccionar al menos una queja"},
+            status=400
+        )
+
+    if not reason or not reason.strip():
+        return Response(
+            {"detail": "Debe indicar el motivo de la suspensión"},
+            status=400
+        )
+
+    # ========================
+    # VALIDAR QUEJAS DEL USUARIO
+    # ========================
+    complaints_qs = Complaint.objects.filter(
+        id__in=complaint_ids,
+        reported_user_id=user,   
+        status_id=1              # pendiente
+    )
+
+    if not complaints_qs.exists():
+        return Response(
+            {"detail": "Las quejas seleccionadas no son válidas o no están activas"},
+            status=400
+        )
+
+    # CONGELAR QUEJAS (CRÍTICO)
+    complaints = list(complaints_qs)
+
+    # ========================
+    # FECHAS
+    # ========================
+    start_date = timezone.now()
+    end_date = None
+
+    if not is_permanent:
+        if not days:
+            return Response(
+                {"detail": "Debe indicar el número de días"},
+                status=400
+            )
+
+        try:
+            days = int(days)
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "El número de días debe ser un entero"},
+                status=400
+            )
+
+        if days < 1 or days > 365:
+            return Response(
+                {"detail": "Los días deben estar entre 1 y 365"},
+                status=400
+            )
+
+        end_date = start_date + timedelta(days=days)
+
+    # ========================
+    # CREAR SUSPENSIÓN
+    # ========================
+    suspension = UserSuspension.objects.create(
+        user_id=user,
+        admin_id=admin,
+        reason=reason,
+        start_date=start_date,
+        end_date=end_date,
+        is_permanent=is_permanent
+    )
+
+    # ========================
+    # DESACTIVAR USUARIO
+    # ========================
+    user.is_suspended = True
+    user.save(update_fields=["is_suspended"])
+
+    # ========================
+    # MARCAR QUEJAS COMO RESUELTAS
+    # ========================
+    complaints_qs.update(status_id=2)
+
+    # ========================
+    # AUDITORÍA
+    # ========================
+    AuditLog.objects.create(
+        actor=admin,
+        action='SUSPENDER_USUARIO',
+        target_user=user,
+        reason=reason,
+        extra_data={
+            "complaint_ids": complaint_ids,
+            "is_permanent": is_permanent,
+            "days": days
+        }
+    )
+
+    # ========================
+    # CORREO
+    # ========================
+    send_suspension_email(
+        user=user,
+        complaints=complaints,  
+        suspension=suspension
+    )
+
+    return Response(
+        {"detail": "Usuario suspendido correctamente"},
+        status=200
+    )

@@ -31,4 +31,8 @@ urlpatterns = [
     path("user-vehicles/deactivate-all/", DeactivateAllVehiclesView.as_view(), name="deactivate-all-vehicles"),
     path('register/resend-verification-code/', ResendNewVerificationCodeView.as_view(), name='resend-verification-code'),
     path('auth/resend-password-reset/', ResendPasswordResetTokenView.as_view(), name='resend-password-reset'),
-]
+    #Administra Usuarios
+    path('admin/users/', AdminUserListView.as_view(), name='admin_user_list'),
+    path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin_user_detail'),
+    path("admin/suspend-user/<int:id>/",suspend_user,name="admin-suspend-user")
+    ]  

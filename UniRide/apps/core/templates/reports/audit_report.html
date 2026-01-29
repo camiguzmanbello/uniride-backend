@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>{{ report_title }}</title>
+
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    color: #1F2937;
+}
+
+/* HEADER */
+.header-table {
+    width: 100%;
+    border-bottom: 2px solid #1A4D45;
+    margin-bottom: 14px;
+}
+
+.logo { width: 70px; }
+
+.title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #1A4D45;
+}
+
+.meta {
+    font-size: 9px;
+    color: #6B7280;
+}
+
+/* ACTION TITLE */
+.action-title {
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    color: #1A4D45;
+    margin-top: 18px;
+    margin-bottom: 6px;
+}
+
+.action-divider {
+    width: 60%;
+    margin: 0 auto 10px;
+    border-bottom: 1px solid #CFE3DF;
+}
+
+/* LOG CARD */
+.log-card {
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #FAFAFA;
+}
+
+.log-meta {
+    font-size: 9px;
+    margin-bottom: 2px;
+}
+
+.log-meta span {
+    color: #6B7280;
+    display: inline-block;
+    min-width: 85px;
+}
+
+.log-extra {
+    font-size: 9px;
+    margin-top: 4px;
+    background: #F3F4F6;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+/* SUMMARY */
+.summary {
+    font-size: 10px;
+    margin-top: 16px;
+    font-weight: bold;
+}
+
+/* EMPTY */
+.empty {
+    text-align: center;
+    font-size: 10px;
+    color: #6B7280;
+    margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<table class="header-table">
+    <tr>
+        <td width="20%" align="center">
+            <img src="reports_assets/uniride_logo.png" class="logo" />
+        </td>
+        <td width="80%">
+            <div class="title">{{ report_title }}</div>
+            <div class="meta">{{ report_subtitle }}</div>
+            <div class="meta">
+                Generado el {{ generated_at }} por {{ generated_by }}
+            </div>
+        </td>
+    </tr>
+</table>
+
+{% if sections %}
+    {% for action_label, logs in sections.items %}
+        <div class="action-title">
+            {{ action_label }}
+        </div>
+        <div class="action-divider"></div>
+
+        {% for l in logs %}
+        <div class="log-card">
+    <div class="log-meta">
+        <span>Actor:</span>
+        {{ l.actor|default:"Sistema" }}
+    </div>
+
+    {% if l.target %}
+    <div class="log-meta">
+        <span>Objetivo:</span>
+        {{ l.target }}
+    </div>
+    {% endif %}
+
+    {% if l.reason %}
+    <div class="log-meta">
+        <span>Motivo:</span>
+        {{ l.reason }}
+    </div>
+    {% endif %}
+
+    <div class="log-meta">
+        <span>Fecha:</span>
+        {{ l.date|date:"d/m/Y H:i" }}
+    </div>
+
+    {% if l.extra_data %}
+    <div class="log-extra">
+        {% for item in l.extra_data %}
+            • {{ item }}<br/>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="log-extra">-</div>
+    {% endif %}
+</div>
+
+        {% endfor %}
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        No existen registros de auditoría en el sistema.
+    </div>
+{% endif %}
+
+<div class="summary">
+Total de eventos registrados: {{ total }}
+</div>
+
+</body>
+</html>
