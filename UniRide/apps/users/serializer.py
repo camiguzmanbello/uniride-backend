@@ -8,7 +8,6 @@ from django.utils import timezone
 from .utils.validate_password import validar_password_y_confirmacion
 from django.contrib.auth import get_user_model
 from .utils.validations import validate_phone_number, validate_email, validate_name
-from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
 User = get_user_model()
 from django.db.models import Avg
@@ -111,7 +110,7 @@ class ConfirmAdminSerializer(serializers.Serializer):
 class UserMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['role_id']
+        fields = ['id', 'role_id']
 
 
 class RoleSerializer(serializers.ModelSerializer):

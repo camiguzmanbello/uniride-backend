@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.ratings',
     'apps.trips',
+    'apps.notifications',
     'drf_yasg',
     'cloudinary',
     'cloudinary_storage',
@@ -188,3 +189,4 @@ CLOUDINARY_STORAGE = {
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+DEFAULT_PROFILE_IMAGE = "https://res.cloudinary.com/dzgcubnp2/image/upload/v1765315248/placeholder-user_h1zyal.png"
