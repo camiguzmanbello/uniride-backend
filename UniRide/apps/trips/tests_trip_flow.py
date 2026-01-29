@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.utils import timezone
-from apps.users.models import User, Role
+from apps.users.models import User, Role, Vehicle, VehicleType
 from apps.trips.models import Publication, PublicationType, Trip, TripPassenger, TripStatus, TripPassengerStatus
 from apps.chat.models import Chat
 import datetime
@@ -19,6 +19,16 @@ class TripFlowTestCase(TestCase):
         self.user2 = User.objects.create_user(username='user2', email='user2@ucundinamarca.edu.co', password='password123', name='User Two', role_id=self.role_user)
         self.user3 = User.objects.create_user(username='user3', email='user3@ucundinamarca.edu.co', password='password123', name='User Three', role_id=self.role_user)
         
+        # Create Vehicle Type and Vehicle
+        self.v_type_car = VehicleType.objects.create(name='Carro')
+        self.vehicle1 = Vehicle.objects.create(
+            user_id=self.user1,
+            type_id=self.v_type_car,
+            brand='Toyota',
+            plate='ABC-123',
+            is_active=True
+        )
+
         # Create Publication Types
         self.type_offer = PublicationType.objects.create(name='Oferta')
         self.type_request = PublicationType.objects.create(name='Solicitud')
@@ -34,6 +44,7 @@ class TripFlowTestCase(TestCase):
         self.pub_offer = Publication.objects.create(
             user_id=self.user1,
             type_id=self.type_offer,
+            vehicle_id=self.vehicle1,
             departure_place="Place A",
             destination="Place B",
             departure_datetime=timezone.now() + datetime.timedelta(days=1),
@@ -231,6 +242,41 @@ class TripFlowTestCase(TestCase):
         self.client.force_authenticate(user=self.user2)
         resp_msg = self.client.post(f'/api/chat/chats/{chat_id}/messages/', {'content': 'Bye'})
         self.assertEqual(resp_msg.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_trip_creation_populates_vehicle(self):
+        # 1. User 2 shows interest in Offer
+        self.client.force_authenticate(user=self.user2)
+        resp = self.client.post('/api/chat/interests/', {'publication_id': self.pub_offer.id})
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        
+        # 2. Check Trip Vehicle
+        trip = Trip.objects.get(publication_id=self.pub_offer.id)
+        self.assertEqual(trip.vehicle_id, self.vehicle1)
+
+    def test_trip_creation_request_no_vehicle(self):
+        # 1. Create Request Publication by User 2
+        pub_req = Publication.objects.create(
+            user_id=self.user2,
+            type_id=self.type_request,
+            departure_place="Place C",
+            destination="Place D",
+            departure_datetime=timezone.now() + datetime.timedelta(days=1),
+            lat_departure_place=1.0,
+            lon_departure_place=1.0,
+            lat_destination=2.0,
+            lon_destination=2.0,
+            available_seats=1,
+            is_active=True
+        )
+        
+        # 2. User 1 (Driver) shows interest
+        self.client.force_authenticate(user=self.user1)
+        resp = self.client.post('/api/chat/interests/', {'publication_id': pub_req.id})
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        
+        # 3. Check Trip Vehicle is None (default for now)
+        trip = Trip.objects.get(publication_id=pub_req.id)
+        self.assertIsNone(trip.vehicle_id)
 
     def test_finalize_passenger_flow(self):
         # 1. Create interest (User 2)

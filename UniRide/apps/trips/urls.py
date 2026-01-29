@@ -8,6 +8,7 @@ router.register(r'publications', PublicationViewSet, basename='publications')
 router.register(r'trippassengers', TripPassengerViewSet, basename='trippassenger')
 router.register(r'trip-statuses', TripStatusViewSet, basename='trip-statuses')
 router.register(r'trip-passenger-statuses', TripPassengerStatusViewSet, basename='trip-passenger-statuses')
+router.register(r'trips', TripViewSet, basename='trips')
 
 
 

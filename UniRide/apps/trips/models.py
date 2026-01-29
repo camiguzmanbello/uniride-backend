@@ -46,6 +46,7 @@ class TripStatus(models.Model):
 class Trip(models.Model):
     publication_id = models.OneToOneField(Publication, on_delete=models.CASCADE, related_name='trip')
     driver_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='driven_trips')
+    vehicle_id = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, related_name='trips', null=True, blank=True)
     status_id = models.ForeignKey(TripStatus, on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
     finalized_at = models.DateTimeField(null=True, blank=True)
