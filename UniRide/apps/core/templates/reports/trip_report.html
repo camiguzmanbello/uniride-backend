@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>{{ report_title }}</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            color: #333;
+        }
+
+        .header-table {
+            width: 100%;
+            border-bottom: 2px solid #1A4D45;
+            margin-bottom: 18px;
+        }
+
+        .logo { width: 80px; }
+
+        .title {
+            font-size: 16px;
+            color: #1A4D45;
+            font-weight: bold;
+        }
+
+        .meta {
+            font-size: 10px;
+            color: #555;
+        }
+
+        .trip-box {
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #E0E0E0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+        }
+
+        th {
+            background-color: #F4F4F4;
+            border: 1px solid #E0E0E0;
+            padding: 4px;
+            font-size: 11px;
+        }
+
+        td {
+            border: 1px solid #E0E0E0;
+            padding: 4px;
+        }
+
+        .empty {
+            text-align: center;
+            font-size: 11px;
+            color: #6B7280;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+
+<table class="header-table">
+    <tr>
+        <td width="20%" align="center">
+            <img src="reports_assets/uniride_logo.png" class="logo" />
+        </td>
+        <td width="80%">
+            <div class="title">{{ report_title }}</div>
+            <div class="meta">{{ report_subtitle }}</div>
+            <div class="meta">
+                Generado el {{ generated_at }} por {{ generated_by }}
+            </div>
+        </td>
+    </tr>
+</table>
+
+{% if trips %}
+    {% for trip in trips %}
+    <div class="trip-box">
+        <strong>Viaje #{{ trip.id }}</strong><br />
+        Conductor: {{ trip.driver_name }}<br />
+        Estado: {{ trip.status }}<br />
+        Ruta: {{ trip.departure_place }} → {{ trip.destination }}<br />
+        Fecha de salida: {{ trip.departure_datetime|date:"d/m/Y H:i" }}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Pasajero</th>
+                    <th>Email</th>
+                    <th>Cupos</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in trip.passengers %}
+                <tr>
+                    <td>{{ p.passenger_name }}</td>
+                    <td>{{ p.passenger_email }}</td>
+                    <td>{{ p.seats_reserved }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3">Sin pasajeros registrados</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        No existen viajes registrados en el sistema.
+    </div>
+{% endif %}
+
+</body>
+</html>

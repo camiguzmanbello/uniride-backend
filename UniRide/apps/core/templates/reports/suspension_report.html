@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>{{ report_title }}</title>
+
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9.5px;
+    color: #1F2937;
+}
+
+/* HEADER */
+.header-table {
+    width: 100%;
+    border-bottom: 2px solid #1A4D45;
+    margin-bottom: 12px;
+}
+
+.logo { width: 65px; }
+
+.title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #1A4D45;
+}
+
+.meta {
+    font-size: 9px;
+    color: #6B7280;
+}
+
+/* SUMMARY */
+.summary {
+    font-size: 10px;
+    margin-bottom: 14px;
+    font-weight: bold;
+}
+
+/* SECTIONS */
+.section-title {
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 18px 0 4px;
+}
+
+.divider {
+    width: 60%;
+    margin: 0 auto 10px;
+    border-bottom: 1px solid #D1D5DB;
+}
+
+/* CARD */
+.card {
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #FAFAFA;
+}
+
+.card-table {
+    width: 100%;
+}
+
+.card-left {
+    width: 30%;
+    font-weight: bold;
+    vertical-align: top;
+}
+
+.card-right {
+    width: 70%;
+    font-size: 9px;
+}
+
+.row { margin-bottom: 2px; }
+
+/* STATUS COLORS */
+.permanent { color: #7F1D1D; }
+.active { color: #1E3A8A; }
+.expired { color: #6B7280; }
+
+.badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 8px;
+    border-radius: 8px;
+    border: 1px solid;
+}
+
+.badge-permanent {
+    border-color: #7F1D1D;
+    color: #7F1D1D;
+}
+
+.badge-active {
+    border-color: #1E3A8A;
+    color: #1E3A8A;
+}
+
+.badge-expired {
+    border-color: #6B7280;
+    color: #6B7280;
+}
+
+.empty {
+    text-align: center;
+    font-size: 10px;
+    color: #6B7280;
+    margin: 16px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<table class="header-table">
+<tr>
+    <td width="20%" align="center">
+        <img src="reports_assets/uniride_logo.png" class="logo" />
+    </td>
+    <td width="80%">
+        <div class="title">{{ report_title }}</div>
+        <div class="meta">{{ report_subtitle }}</div>
+        <div class="meta">
+            Generado el {{ generated_at }} por {{ generated_by }}
+        </div>
+    </td>
+</tr>
+</table>
+
+<div class="summary">
+Total: {{ total }} |
+Permanentes: {{ total_permanent }} |
+Temporales activas: {{ total_temp_active }} |
+Temporales vencidas: {{ total_temp_expired }}
+</div>
+
+<!-- PERMANENTES -->
+<div class="section-title permanent">SUSPENSIONES PERMANENTES</div>
+<div class="divider"></div>
+
+{% if permanent %}
+{% for s in permanent %}
+<div class="card">
+<table class="card-table">
+<tr>
+    <td class="card-left permanent">
+        {{ s.user_id.name }}<br />
+        <span class="badge badge-permanent">PERMANENTE</span>
+    </td>
+    <td class="card-right">
+        <div class="row">Administrador: {{ s.admin_id.name }}</div>
+        <div class="row">Desde: {{ s.start_date|date:"d/m/Y" }}</div>
+        <div class="row">Motivo: {{ s.reason }}</div>
+    </td>
+</tr>
+</table>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">No hay suspensiones permanentes.</div>
+{% endif %}
+
+<!-- TEMPORALES ACTIVAS -->
+<div class="section-title active">SUSPENSIONES TEMPORALES ACTIVAS</div>
+<div class="divider"></div>
+
+{% if temporary_active %}
+{% for s in temporary_active %}
+<div class="card">
+<table class="card-table">
+<tr>
+    <td class="card-left active">
+        {{ s.user_id.name }}<br />
+        <span class="badge badge-active">ACTIVA</span>
+    </td>
+    <td class="card-right">
+        <div class="row">Administrador: {{ s.admin_id.name }}</div>
+        <div class="row">
+            Periodo: {{ s.start_date|date:"d/m/Y" }} -
+            {{ s.end_date|date:"d/m/Y" }}
+        </div>
+        <div class="row">Motivo: {{ s.reason }}</div>
+    </td>
+</tr>
+</table>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">No hay suspensiones temporales activas.</div>
+{% endif %}
+
+<!-- TEMPORALES VENCIDAS -->
+<div class="section-title expired">SUSPENSIONES TEMPORALES VENCIDAS</div>
+<div class="divider"></div>
+
+{% if temporary_expired %}
+{% for s in temporary_expired %}
+<div class="card">
+<table class="card-table">
+<tr>
+    <td class="card-left expired">
+        {{ s.user_id.name }}<br />
+        <span class="badge badge-expired">VENCIDA</span>
+    </td>
+    <td class="card-right">
+        <div class="row">Administrador: {{ s.admin_id.name }}</div>
+        <div class="row">
+            Periodo: {{ s.start_date|date:"d/m/Y" }} -
+            {{ s.end_date|date:"d/m/Y" }}
+        </div>
+        <div class="row">Motivo: {{ s.reason }}</div>
+    </td>
+</tr>
+</table>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">No hay suspensiones temporales vencidas.</div>
+{% endif %}
+
+</body>
+</html>

@@ -31,7 +31,7 @@ def send_code_email(subject: str, message: str, code: str, finalmessage: str, em
             </span>
           </div>         
           <p style="font-size: 14px; color: #666;">{finalmessage}</p>
-          <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">Uniride © 2025</p>
+          <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">Uniride © 2026</p>
         </div>
       </body>
     </html>
@@ -41,3 +41,132 @@ def send_code_email(subject: str, message: str, code: str, finalmessage: str, em
     email_msg = EmailMultiAlternatives(subject, text_content, from_email, [email])
     email_msg.attach_alternative(html_content, "text/html")
     email_msg.send()
+
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
+from email.mime.image import MIMEImage
+from pathlib import Path
+import os
+
+
+def send_suspension_email(user, complaints, suspension):
+    subject = "Estado de tu cuenta - UniRide"
+    from_email = settings.DEFAULT_FROM_EMAIL
+
+    # ========================
+    # TEXTO PLANO
+    # ========================
+    complaints_text = "\n".join(
+        f"- {c.type_id.name}: {c.description}" for c in complaints
+    ) or "- No se especificaron quejas."
+
+    if suspension.is_permanent:
+        text_content = f"""
+Hola {user.name},
+
+Tu cuenta ha sido BLOQUEADA PERMANENTEMENTE.
+
+Motivos:
+{complaints_text}
+
+Comentario del administrador:
+{suspension.reason}
+
+Esta suspensión es definitiva.
+"""
+    else:
+        text_content = f"""
+Hola {user.name},
+
+Tu cuenta ha sido suspendida temporalmente.
+
+Motivos:
+{complaints_text}
+
+Comentario del administrador:
+{suspension.reason}
+
+Podrás volver a acceder el:
+{suspension.end_date.strftime('%d/%m/%Y')}
+"""
+
+    # ========================
+    # HTML – QUEJAS
+    # ========================
+    complaints_html = "".join(
+        f"""
+        <li style="margin-bottom:6px;">
+            <strong>{c.type_id.name}:</strong> {c.description}
+        </li>
+        """
+        for c in complaints
+    ) or "<li>No se especificaron quejas.</li>"
+
+    # ========================
+    # ESTADO
+    # ========================
+    if suspension.is_permanent:
+        status_title = "Cuenta Bloqueada"
+        status_color = "#b91c1c"
+        status_message = "Tu cuenta ha sido bloqueada permanentemente."
+        extra_info = "<strong>Esta suspensión es definitiva.</strong>"
+    else:
+        status_title = "Cuenta Suspendida"
+        status_color = "#f59e0b"
+        status_message = "Tu cuenta ha sido suspendida temporalmente."
+        extra_info = f"""
+        Podrás volver a acceder a UniRide el:
+        <strong>{suspension.end_date.strftime('%d/%m/%Y')}</strong>
+        """
+
+    # ========================
+    # HTML FINAL
+    # ========================
+    html_content = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
+        <div style="max-width:520px;margin:auto;background:white;border-radius:12px;padding:30px;">
+          <div style="text-align:center;margin-bottom:20px;">
+            <img src="cid:logo" alt="UniRide" style="height:60px;" />
+          </div>
+
+          <h2 style="color:{status_color};text-align:center;">
+            {status_title}
+          </h2>
+
+          <p>Hola <strong>{user.name}</strong>,</p>
+          <p>{status_message}</p>
+
+          <ul>{complaints_html}</ul>
+
+          <p><strong>Comentario del administrador:</strong><br>{suspension.reason}</p>
+
+          <p>{extra_info}</p>
+
+          <p style="font-size:12px;color:#999;text-align:center;">
+            UniRide © 2026
+          </p>
+        </div>
+      </body>
+    </html>
+    """
+
+    email_message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=from_email,
+        to=[user.email],
+    )
+
+    email_message.attach_alternative(html_content, "text/html")
+
+    logo_path = Path(settings.BASE_DIR) / "email_assets" / "logo-uniride2.png"
+
+    if logo_path.exists():
+        with open(logo_path, "rb") as f:
+            logo = MIMEImage(f.read())
+            logo.add_header("Content-ID", "<logo>")
+            logo.add_header("Content-Disposition", "inline", filename="logo.png")
+            email_message.attach(logo)
+
+    email_message.send()

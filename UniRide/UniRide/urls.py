@@ -22,10 +22,13 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/users/", include("apps.users.urls")),
+    path("api/complaints/", include("apps.complaints.urls")),
+    path("api/core/", include("apps.core.urls")),
     path("api/trips/", include("apps.trips.urls")),
     path("api/chat/", include("apps.chat.urls")),
     path("api/notifications/", include("apps.notifications.urls")),
     
+
 ]
 
 # Mostrar Swagger solo en modo DEBUG

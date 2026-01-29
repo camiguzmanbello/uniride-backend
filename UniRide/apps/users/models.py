@@ -23,7 +23,7 @@ class User(AbstractUser):
     role_id = models.ForeignKey(Role, on_delete=models.PROTECT, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     is_verified = models.BooleanField(default=False)
-
+    is_suspended = models.BooleanField(default=False)
      # Desactivar campos que no se necesitan de AbstractUser
     username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     first_name = models.CharField(max_length=150, null=True, blank=True)
@@ -103,9 +103,10 @@ class UserSuspension(models.Model):
     admin_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applied_suspensions')
     reason = models.TextField()
     start_date = models.DateTimeField(default=timezone.now)
-    end_date = models.DateTimeField()
     is_permanent = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField(null=True, blank=True)
+
 
     class Meta:
         verbose_name = 'Suspensión de Usuario'
@@ -146,4 +147,3 @@ class AuditLog(models.Model):
     def __str__(self):
         actor_email = self.actor.email if self.actor else "Usuario eliminado"
         return f"{actor_email} → {self.action} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
-
