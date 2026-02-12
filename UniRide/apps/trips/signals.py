@@ -19,7 +19,17 @@ def publication_changed(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Trip)
 def trip_changed(sender, instance, created, **kwargs):
-    # Cuando Trip.status pase a Finalizado o Cancelado:
+    # 1. Cuando Trip.status pase a 'En curso':
+    # Desactivar publicaciones activas del conductor y pasajeros aceptados.
+    if not created and instance.status_id.name == 'En curso':
+        # Desactivar publicaciones del conductor
+        Publication.objects.filter(user_id=instance.driver_id, is_active=True).update(is_active=False)
+        
+        # Desactivar publicaciones de los pasajeros aceptados
+        passenger_ids = instance.passengers.filter(status_id__name='Aceptado').values_list('passenger_id', flat=True)
+        Publication.objects.filter(user_id__in=passenger_ids, is_active=True).update(is_active=False)
+
+    # 2. Cuando Trip.status pase a Finalizado o Cancelado:
     # Cerrar todos los chats asociados a ese viaje.
     if not created and instance.status_id.name in ['Finalizado', 'Cancelado']:
         from apps.chat.models import Chat

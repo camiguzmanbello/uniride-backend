@@ -5,7 +5,11 @@ from .serializers import *
 from rest_framework.viewsets import ModelViewSet
 from django.db.models import Q
 from rest_framework.decorators import action
-from apps.trips.services.trip_flow import accept_passenger, close_pending_for_publication
+from apps.trips.services.trip_flow import (
+    accept_passenger, 
+    close_pending_for_publication,
+    deactivate_expired_publications
+)
 from apps.chat.models import Chat
 from django.utils import timezone
 
@@ -22,8 +26,23 @@ class PublicationViewSet(ModelViewSet):
 
     permission_classes = [permissions.AllowAny]
 
-    queryset = Publication.objects.all()
     serializer_class = PublicationSerializer
+
+    def get_queryset(self):
+        # Desactivar publicaciones vencidas de forma perezosa
+        deactivate_expired_publications()
+        
+        # Por defecto, en el listado general solo mostramos las activas
+        # Si es un detalle (retrieve) o una acción específica, DRF usará el ID
+        # pero para el listado filtramos por is_active=True
+        queryset = Publication.objects.all()
+        
+        # Opcional: Si queremos que el listado general (/api/trips/publications/) 
+        # solo devuelva las activas por defecto:
+        if self.action == 'list':
+            queryset = queryset.filter(is_active=True)
+            
+        return queryset
 
     #para que al crear una publicacion se asigne el user logueado
     def perform_create(self, serializer):
@@ -137,15 +156,21 @@ class TripViewSet(ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def current(self, request):
         """
-        Retorna el viaje actual (Activo) del usuario, ya sea 'Pendiente' o 'En curso'.
+        Retorna el viaje actual (Activo) del usuario.
+        Considera:
+        - Para conductores: Viajes 'Pendiente', 'En curso' o 'Pendiente Cancelación'.
+        - Para pasajeros: Viajes 'En curso' o 'Pendiente Cancelación' (si están aceptados),
+          o viajes 'Pendiente' SI ya han sido aceptados por el conductor.
         Retorna 204 No Content si no tiene viaje activo.
         """
         user = request.user
         
         # 1. Como conductor
+        # Incluimos 'Pendiente' para que el conductor pueda ver su viaje y darle a "Iniciar"
+        active_statuses_driver = ['Pendiente', 'En curso', 'Pendiente Cancelación']
         active_driven = Trip.objects.filter(
             driver_id=user,
-            status_id__name__in=['Pendiente', 'En curso']
+            status_id__name__in=active_statuses_driver
         ).first()
         
         if active_driven:
@@ -153,17 +178,83 @@ class TripViewSet(ModelViewSet):
             return Response(serializer.data)
             
         # 2. Como pasajero aceptado
+        # - Si el viaje está 'En curso' o 'Pendiente Cancelación', mostramos si el pasajero está aceptado/finalizado.
+        # - Si el viaje está 'Pendiente', SOLO mostramos si el pasajero ya fue Aceptado.
         active_joined = Trip.objects.filter(
             passengers__passenger_id=user,
-            passengers__status_id__name='Aceptado',
-            status_id__name__in=['Pendiente', 'En curso']
+            passengers__status_id__name='Aceptado'
+        ).filter(
+            Q(status_id__name__in=['Pendiente', 'En curso', 'Pendiente Cancelación'])
         ).first()
         
+        # Caso especial: Pasajero que ya finalizó su parte en un viaje que sigue 'En curso' para otros
+        if not active_joined:
+            active_joined = Trip.objects.filter(
+                passengers__passenger_id=user,
+                passengers__status_id__name='Finalizado',
+                status_id__name__in=['En curso', 'Pendiente Cancelación']
+            ).first()
+
         if active_joined:
             serializer = TripHistorySerializer(active_joined, context={'request': request})
             return Response(serializer.data)
             
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def start(self, request, pk=None):
+        """
+        Permite al conductor iniciar el viaje de manera manual, incluso si no se han llenado los cupos.
+        Cambia el estado del viaje a 'En curso'.
+        """
+        trip = self.get_object()
+        user = request.user
+        
+        # Validar que sea el conductor
+        if trip.driver_id != user:
+            return Response({"detail": "Solo el conductor puede iniciar el viaje."}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Validar estado actual
+        if trip.status_id.name != 'Pendiente':
+            return Response({"detail": f"No se puede iniciar un viaje en estado {trip.status_id.name}."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Validar que haya al menos un pasajero aceptado
+        if not trip.passengers.filter(status_id__name='Aceptado').exists():
+            return Response({"detail": "No puedes iniciar el viaje sin al menos un pasajero aceptado."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            in_progress_status = TripStatus.objects.get(name='En curso')
+            rejected_status = TripPassengerStatus.objects.get(name='Rechazado')
+        except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist):
+            return Response({"detail": "Error de configuración: Estados necesarios no encontrados."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        # 1. Cambiar estado del viaje
+        trip.status_id = in_progress_status
+        trip.save()
+        
+        # 2. Rechazar a los demás pendientes que no fueron aceptados antes de iniciar
+        pending_passengers = trip.passengers.filter(status_id__name='Pendiente')
+        for p in pending_passengers:
+            p.status_id = rejected_status
+            p.save()
+            
+        # Nota: La desactivación de publicaciones se maneja automáticamente por signals al cambiar a 'En curso'
+        
+        return Response({
+            "detail": "El viaje ha sido iniciado manualmente.",
+            "trip_status": "En curso"
+        })
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def passengers(self, request, pk=None):
+        """
+        Retorna el listado de pasajeros (TripPassenger) asociados a un viaje.
+        """
+        trip = self.get_object()
+        passengers = trip.passengers.all().select_related('passenger_id', 'status_id')
+        
+        serializer = TripPassengerSerializer(passengers, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], serializer_class=serializers.Serializer)
     def reset_all(self, request):
@@ -199,3 +290,295 @@ class TripViewSet(ModelViewSet):
             "trips_canceled": trips_updated,
             "chats_closed": chats_updated
         }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], serializer_class=CancelTripSerializer)
+    def cancel_participation(self, request, pk=None):
+        """
+        Endpoint para cancelar la participación en un viaje.
+        Requiere 'reason' en el body.
+        Reglas:
+        - Si cancela el Conductor -> El viaje pasa a 'Pendiente Cancelación'. Se espera confirmación de pasajeros.
+        - Si cancela un Pasajero:
+            - Si el viaje tiene > 2 integrantes (Conductor + >1 Pasajero Aceptado) -> Solo se cancela el pasajero.
+            - Si el viaje tiene <= 2 integrantes (Conductor + 1 Pasajero) -> El viaje pasa a 'Pendiente Cancelación'. Se espera confirmación del conductor.
+        """
+        trip = self.get_object()
+        user = request.user
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data['reason']
+
+        # Verificar si el usuario es participante
+        is_driver = trip.driver_id == user
+        passenger_record = trip.passengers.filter(passenger_id=user).first()
+
+        if not is_driver and not passenger_record:
+            return Response(
+                {"detail": "No eres participante de este viaje."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Verificar estado del viaje (solo Pendiente o En curso)
+        if trip.status_id.name not in ['Pendiente', 'En curso']:
+            return Response(
+                {"detail": "No se puede cancelar un viaje que no está activo."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            cancel_status_passenger = TripPassengerStatus.objects.get(name='Cancelado')
+            pending_cancellation_status, _ = TripStatus.objects.get_or_create(name='Pendiente Cancelación')
+        except Exception:
+            return Response(
+                {"detail": "Error de configuración: Estados necesarios no encontrados."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # Helper para iniciar cancelación del viaje (Estado Intermedio)
+        def initiate_trip_cancellation(trip_obj, reason_text, canceled_by_user):
+            trip_obj.status_id = pending_cancellation_status
+            trip_obj.cancel_reason = reason_text
+            trip_obj.canceled_by = canceled_by_user
+            
+            # Auto-confirmar lectura para el usuario que cancela
+            if canceled_by_user == trip_obj.driver_id:
+                trip_obj.driver_cancellation_ack = True
+            else:
+                # Si es pasajero, buscamos su record y marcamos ack
+                p_rec = trip_obj.passengers.filter(passenger_id=canceled_by_user).first()
+                if p_rec:
+                    p_rec.cancellation_ack = True
+                    p_rec.save()
+            
+            trip_obj.save()
+            return "Se ha solicitado la cancelación del viaje. Esperando confirmación de lectura de los demás participantes."
+
+        # Lógica de cancelación
+        message = ""
+        trip_status_result = trip.status_id.name # Default actual
+
+        if is_driver:
+            # Caso: Conductor cancela -> Inicia cancelación global
+            message = initiate_trip_cancellation(trip, reason, user)
+            trip_status_result = "Pendiente Cancelación"
+        else:
+            # Caso: Pasajero cancela
+            # Contar pasajeros aceptados ACTIVOS (excluyendo al que cancela si ya estuviera contado, pero aun no cambiamos estado)
+            # Total integrantes = 1 (Conductor) + N (Pasajeros Aceptados)
+            active_passengers_count = trip.passengers.filter(status_id__name='Aceptado').count()
+            total_participants = 1 + active_passengers_count
+            
+            # Si el pasajero actual NO está aceptado (ej. Pendiente), su salida no afecta la integridad del viaje activo.
+            # Pero si está Aceptado, cuenta para la regla de "2 integrantes".
+            is_accepted = passenger_record.status_id.name == 'Aceptado'
+            
+            if is_accepted and total_participants <= 2:
+                # Caso: Conductor + 1 Pasajero (el que cancela) -> Inicia cancelación global
+                message = initiate_trip_cancellation(trip, reason, user)
+                trip_status_result = "Pendiente Cancelación"
+            else:
+                # Caso: Hay más gente o el pasajero no estaba aceptado -> Solo se va él (Inmediato)
+                passenger_record.status_id = cancel_status_passenger
+                passenger_record.cancel_reason = reason
+                passenger_record.finalized_at = timezone.now()
+                passenger_record.save()
+                
+                # Liberar cupos si era una oferta y estaba aceptado
+                if 'oferta' in trip.publication_id.type_id.name.lower() and is_accepted:
+                    from django.db.models import F
+                    trip.publication_id.available_seats = F('available_seats') + passenger_record.seats_reserved
+                    trip.publication_id.save()
+                    trip.publication_id.refresh_from_db()
+
+                message = "Tu participación ha sido cancelada."
+                trip_status_result = trip.status_id.name # Mantiene estado original (Pendiente/En curso)
+
+        return Response({
+            "detail": message,
+            "canceled_by": user.name,
+            "reason": reason,
+            "trip_status": trip_status_result
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def confirm_cancellation_read(self, request, pk=None):
+        """
+        Endpoint para confirmar que el usuario ha leído el motivo de cancelación.
+        Solo válido si el viaje está en 'Pendiente Cancelación'.
+        Si todos los participantes confirman, el viaje pasa a 'Cancelado'.
+        """
+        trip = self.get_object()
+        user = request.user
+        
+        if trip.status_id.name != 'Pendiente Cancelación':
+            return Response(
+                {"detail": "El viaje no está en proceso de cancelación."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Identificar rol y marcar ACK
+        is_driver = trip.driver_id == user
+        passenger_record = trip.passengers.filter(passenger_id=user).first()
+
+        if not is_driver and not passenger_record:
+             return Response(
+                {"detail": "No eres participante de este viaje."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if is_driver:
+            trip.driver_cancellation_ack = True
+            trip.save()
+        else:
+            # Solo pasajeros aceptados necesitan confirmar (los pendientes/rechazados no pintan mucho aquí, pero asumamos aceptados)
+            # De hecho, si el viaje se canceló, solo nos importan los que estaban activos.
+            passenger_record.cancellation_ack = True
+            passenger_record.save()
+
+        # Verificar si TODOS han confirmado
+        # Participantes que deben confirmar: Conductor + Pasajeros Aceptados
+        
+        # 1. Driver Ack
+        if not trip.driver_cancellation_ack:
+            return Response({"detail": "Confirmación registrada. Esperando al conductor."})
+
+        # 2. Passengers Ack
+        # Buscamos pasajeros que estaban Aceptados
+        pending_passengers = trip.passengers.filter(status_id__name='Aceptado', cancellation_ack=False).exists()
+        
+        if not pending_passengers:
+            # Todos confirmaron -> FINALIZAR CANCELACIÓN
+            try:
+                cancel_status_trip = TripStatus.objects.get(name='Cancelado')
+                cancel_status_passenger = TripPassengerStatus.objects.get(name='Cancelado')
+            except:
+                 return Response({"detail": "Error interno configurando estados."}, status=500)
+
+            trip.status_id = cancel_status_trip
+            trip.finalized_at = timezone.now()
+            trip.save()
+            
+            # Desactivar publicación
+            trip.publication_id.is_active = False
+            trip.publication_id.save()
+            
+            # Cancelar a todos los pasajeros activos
+            trip.passengers.filter(status_id__name__in=['Pendiente', 'Aceptado']).update(
+                status_id=cancel_status_passenger,
+                cancel_reason=f"Viaje cancelado por {trip.canceled_by.name if trip.canceled_by else 'Desconocido'}: {trip.cancel_reason}",
+                finalized_at=timezone.now()
+            )
+            
+            # Cerrar chats
+            Chat.objects.filter(publication=trip.publication_id, is_active=True).update(
+                is_active=False,
+                closed_at=timezone.now()
+            )
+            
+            return Response({
+                "detail": "Confirmación registrada. El viaje ha sido cancelado completamente.",
+                "trip_status": "Cancelado"
+            })
+            
+        return Response({
+            "detail": "Confirmación registrada. Esperando a los demás participantes.",
+            "trip_status": "Pendiente Cancelación"
+        })
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], serializer_class=serializers.Serializer)
+    def finalize(self, request, pk=None):
+        """
+        El viaje solo cambia a estado 'Finalizado' globalmente cuando TODOS los participantes
+        (conductor y pasajeros aceptados) lo han marcado como finalizado.
+        """
+        trip = self.get_object()
+        user = request.user
+        
+        # Verificar si el usuario es participante
+        is_driver = trip.driver_id == user
+        passenger_record = trip.passengers.filter(passenger_id=user).first()
+        
+        if not is_driver and not passenger_record:
+            return Response(
+                {"detail": "No eres participante de este viaje."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        try:
+            finalized_status = TripStatus.objects.get(name='Finalizado')
+            passenger_finalized_status = TripPassengerStatus.objects.get(name='Finalizado')
+        except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist):
+            return Response(
+                {"detail": "Error de configuración: Estado 'Finalizado' no encontrado."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # 1. Actualizar estado individual
+        if is_driver:
+            trip.driver_finalized = True
+            trip.save()
+        else:
+            # Solo actualizar si es un pasajero activo (Aceptado) o ya finalizado (para idempotencia)
+            # Si el pasajero fue rechazado o cancelado, no debería poder finalizar, pero el filtro inicial lo permite.
+            # Vamos a restringirlo a solo Aceptados o ya Finalizados.
+            if passenger_record.status_id.name not in ['Aceptado', 'Finalizado']:
+                 return Response(
+                    {"detail": "Solo pasajeros aceptados pueden finalizar el viaje."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            passenger_record.status_id = passenger_finalized_status
+            passenger_record.finalized_at = timezone.now()
+            passenger_record.save()
+            
+        # 2. Verificar consenso (Todos han finalizado?)
+        # Condición: Driver finalizó AND No hay pasajeros en estado 'Aceptado' (todos pasaron a Finalizado o se fueron)
+        
+        # Refrescamos el trip por si acaso
+        trip.refresh_from_db()
+        
+        all_passengers_done = not trip.passengers.filter(status_id__name='Aceptado').exists()
+        
+        if trip.driver_finalized and all_passengers_done:
+            trip.status_id = finalized_status
+            trip.finalized_at = timezone.now()
+            trip.save()
+            
+            # Desactivar publicación asociada
+            trip.publication_id.is_active = False
+            trip.publication_id.save()
+            
+            # Cerrar chats asociados
+            Chat.objects.filter(publication=trip.publication_id, is_active=True).update(
+                is_active=False,
+                closed_at=timezone.now()
+            )
+            
+            return Response({
+                "detail": "Has marcado el viaje como finalizado. El viaje ha concluido para todos.",
+                "trip_status": "Finalizado"
+            })
+            
+        return Response({
+            "detail": "Has marcado el viaje como finalizado. Esperando a los demás participantes.",
+            "trip_status": trip.status_id.name
+        })
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def cancellation_reason(self, request, pk=None):
+        """
+        Devuelve el motivo de cancelación de un viaje.
+        Solo disponible si el viaje está en estado 'Cancelado'.
+        """
+        trip = self.get_object()
+        
+        if trip.status_id.name != 'Cancelado':
+            return Response(
+                {"detail": "El viaje no está cancelado."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        return Response({
+            "cancel_reason": trip.cancel_reason,
+            "finalized_at": trip.finalized_at
+        })
