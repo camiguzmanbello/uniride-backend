@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'apps.ratings',
     'apps.trips',
     'apps.notifications',
+    'apps.match',
     'drf_yasg',
     'cloudinary',
     'cloudinary_storage',
