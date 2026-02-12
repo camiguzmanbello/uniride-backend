@@ -2,9 +2,31 @@ from django.db import transaction
 from django.db.models import F
 from rest_framework.exceptions import ValidationError, APIException
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from apps.trips.models import Publication, Trip, TripPassenger, TripStatus, TripPassengerStatus
 from apps.chat.models import Chat
 from apps.users.models import User
+
+def deactivate_expired_publications():
+    """
+    Busca todas las publicaciones activas cuya fecha de salida ya pasó
+    y las desactiva, cerrando también sus solicitudes pendientes.
+    """
+    now = timezone.now()
+    
+    # Buscamos publicaciones que deberían estar inactivas
+    expired_pubs = Publication.objects.filter(
+        is_active=True,
+        departure_datetime__lt=now
+    )
+    
+    count = 0
+    for pub in expired_pubs:
+        pub.is_active = False
+        pub.save() # Dispara signals para cerrar chats y pendientes
+        count += 1
+            
+    return count
 
 class ConflictError(APIException):
     """

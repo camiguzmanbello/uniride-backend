@@ -51,7 +51,10 @@ class Trip(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     finalized_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.TextField(null=True, blank=True)
+    canceled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='canceled_trips')
     auto_finalized = models.BooleanField(default=False)
+    driver_finalized = models.BooleanField(default=False)
+    driver_cancellation_ack = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Viaje de {self.driver_id.name} - Estado: {self.status_id.name}"
@@ -73,6 +76,7 @@ class TripPassenger(models.Model):
     finalized_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.TextField(null=True, blank=True)
     auto_finalized = models.BooleanField(default=False)
+    cancellation_ack = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('trip_id', 'passenger_id')

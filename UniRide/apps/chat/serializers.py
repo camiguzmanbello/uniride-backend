@@ -11,6 +11,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         from apps.users.models import User
         model = User
         fields = ['id', 'name', 'email', 'profile_image']
+        ref_name = "ChatSimpleUser"
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = SimpleUserSerializer(source='sender_id', read_only=True)

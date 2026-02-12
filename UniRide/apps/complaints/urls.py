@@ -4,12 +4,31 @@ from .views import *
 
 router = DefaultRouter() 
 urlpatterns = [
+    # Endpoints para Administradores
     path(
-        'complaints/admin/active/',
+        'admin/active/',
         list_active_complaints
     ),
     path(
-        'complaints/admin/<int:complaint_id>/resolve/',
+        'admin/<int:complaint_id>/resolve/',
         resolve_complaint
+    ),
+    # Endpoints para Usuarios
+    path(
+        'interactable-users/',
+        get_interactable_users
+    ),
+    path(
+        'create/',
+        create_complaint
+    ),
+    # Gestión de Tipos y Estados (Admin)
+    path(
+        'types/',
+        manage_complaint_types
+    ),
+    path(
+        'statuses/',
+        manage_complaint_status
     ),
 ]
