@@ -23,7 +23,7 @@ def get_user_report_data(user_type="all"):
     elif user_type == "user":
         users = users.filter(role_id__name="Usuario")
 
-    # 🔑 Logs de confirmación de administradores
+    # Logs de confirmación de administradores
     confirm_logs = (
         AuditLog.objects
         .filter(

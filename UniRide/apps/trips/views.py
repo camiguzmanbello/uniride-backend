@@ -12,7 +12,7 @@ from apps.trips.services.trip_flow import (
 )
 from apps.chat.models import Chat
 from django.utils import timezone
-
+from apps.match.services.route_service import assign_route_to_publication
 
 class PublicationTypeViewSet(ModelViewSet):
 
@@ -46,7 +46,11 @@ class PublicationViewSet(ModelViewSet):
 
     #para que al crear una publicacion se asigne el user logueado
     def perform_create(self, serializer):
-        serializer.save(user_id=self.request.user)
+        publication = serializer.save(user_id=self.request.user)
+
+        # asigna ruta y crea route_info correctamente
+        assign_route_to_publication(publication)
+
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], serializer_class=serializers.Serializer)
     def deactivate(self, request, pk=None):

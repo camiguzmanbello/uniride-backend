@@ -1228,7 +1228,7 @@ def suspend_user(request, id):
             status=400
         )
 
-    # CONGELAR QUEJAS (CRÍTICO)
+    # CONGELAR QUEJAS
     complaints = list(complaints_qs)
 
     # ========================
@@ -1281,8 +1281,11 @@ def suspend_user(request, id):
     # ========================
     # MARCAR QUEJAS COMO RESUELTAS
     # ========================
-    complaints_qs.update(status_id=2)
-
+    complaints_qs.update(
+    status_id=2,
+    resolved_at=timezone.now(),
+    admin_id=admin
+)
     # ========================
     # AUDITORÍA
     # ========================

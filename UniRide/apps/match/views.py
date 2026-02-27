@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.match.models import MatchSuggestion
 from apps.match.services.matching_service import generate_suggestions_for_driver
 from apps.trips.models import Publication
+from apps.match.models import MatchSuggestion
 
 class GenerateSuggestionsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -16,7 +17,7 @@ class GenerateSuggestionsView(APIView):
 
         publications = Publication.objects.filter(
             user_id=request.user,
-            type_id=1,
+            type_id=2,
             is_active=True
         )
 
@@ -44,7 +45,7 @@ class GetMySuggestionsView(APIView):
 
         driver_publications = Publication.objects.filter(
             user_id=request.user,
-            type_id=1,        # Conductor
+            type_id=2,        # Conductor
             is_active=True
         )
 
@@ -111,3 +112,35 @@ class GetMySuggestionsView(APIView):
                 "results": list(results.values())
             }
         )
+
+class HasDriverPublicationView(APIView):
+    permission_classes=[IsAuthenticated]
+
+    def get(self, request):
+        exists = Publication.objects.filter(
+            user_id=request.user,
+            type_id=2, # Conductor
+            is_active=True
+        ).exists()
+
+        return Response({"has_active": exists})
+
+
+
+class IgnoreSuggestionView(APIView):
+    permission_classes=[IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            suggestion = MatchSuggestion.objects.get(
+                id=pk,
+                driver_publication__user_id=request.user
+            )
+
+            suggestion.is_active = False
+            suggestion.save()
+
+            return Response({"message":"Sugerencia ignorada"})
+        
+        except MatchSuggestion.DoesNotExist:
+            return Response({"error":"No encontrada"}, status=404)

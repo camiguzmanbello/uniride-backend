@@ -1,10 +1,9 @@
 from rest_framework import serializers
 # users/serializers/report_serializers.py
 from rest_framework import serializers
-from apps.users.models import User, Role, UserSuspension, AuditLog, Vehicle,PendingUser
+from apps.users.models import User, UserSuspension, AuditLog, Vehicle
 from apps.trips.models import Trip, TripPassenger
 from apps.ratings.models import Rating
-from apps.core.models import Pairing, PairingStatus
 
 class ChartSerializer(serializers.Serializer):
     labels = serializers.ListField(
@@ -169,13 +168,3 @@ class AuditLogSerializer(serializers.ModelSerializer):
 # -------------------
 # Emparejamientos
 # -------------------
-class PairingSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user_id.name", read_only=True)
-    publication_id = serializers.IntegerField(source="publication_id.id", read_only=True)
-    status = serializers.CharField(source="status_id.name", read_only=True)
-
-    class Meta:
-        model = Pairing
-        fields = ["publication_id", "user_name", "status", "time_response", "created_at"]
-
-

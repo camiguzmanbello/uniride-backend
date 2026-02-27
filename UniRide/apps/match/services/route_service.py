@@ -1,5 +1,5 @@
-from utils.geo_utils import haversine_distance
-from match.models import Route
+from ..utils.geo_utils import haversine_distance
+from apps.match.models import Route, PublicationRoute
 def get_closest_route(lat, lon):
     """
     Dada una coordenada (lat, lon),
@@ -13,7 +13,7 @@ def get_closest_route(lat, lon):
     closest_route = None
     min_distance = float('inf')
 
-    for route in Route.objects.filter(is_active=True):
+    for route in Route.objects.all():
         for point in route.points.all():
             distance = haversine_distance(
                 lat, lon,
@@ -35,10 +35,16 @@ def get_closest_point_on_route(route, lat, lon):
     closest_point = None
     min_distance = float('inf')
 
-    for point in route.points.all():
+    points = route.points.all()
+
+    if not points.exists():
+        return None
+
+    for point in points:
         distance = haversine_distance(
             lat, lon,
-            point.latitude, point.longitude
+            point.latitude,
+            point.longitude
         )
 
         if distance < min_distance:
@@ -46,7 +52,6 @@ def get_closest_point_on_route(route, lat, lon):
             closest_point = point
 
     return closest_point
-
 def assign_route_to_publication(publication):
     """
     Asigna internamente una ruta lógica
@@ -60,8 +65,25 @@ def assign_route_to_publication(publication):
         publication.lon_departure_place
     )
 
-    publication.route_info.route = route
-    publication.route_info.save()
+    if not route:
+        return None
+
+    closest_point = get_closest_point_on_route(
+        route,
+        publication.lat_departure_place,
+        publication.lon_departure_place
+    )
+
+    if not closest_point:
+        return None
+
+    PublicationRoute.objects.update_or_create(
+        publication=publication,
+        defaults={
+            "route": route,
+            "closest_point": closest_point
+        }
+    )
 
     return route
 
@@ -82,6 +104,6 @@ def is_direction_compatible(driver_pub, passenger_pub):
     """
 
     return (
-        driver_pub.route_info.direction ==
-        passenger_pub.route_info.direction
+        driver_pub.route_info.route.direction ==
+        passenger_pub.route_info.route.direction
     )
