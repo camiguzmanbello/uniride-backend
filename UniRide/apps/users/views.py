@@ -616,6 +616,18 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class PublicUserProfileView(APIView):
+    """
+    Vista para obtener el perfil público de cualquier usuario.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(responses={200: PublicUserProfileSerializer()})
+    def get(self, request, user_id):
+        user = get_object_or_404(User, id=user_id, is_active=True)
+        serializer = PublicUserProfileSerializer(user)
+        return Response(serializer.data)
+
 class UserSelfProfileView(RetrieveUpdateAPIView):
 
     permission_classes = [IsAuthenticated]

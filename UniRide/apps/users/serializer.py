@@ -13,6 +13,30 @@ User = get_user_model()
 from django.db.models import Avg
 
 
+class PublicRatingSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.CharField(source='reviewer_id.name', read_only=True)
+    reviewer_image = serializers.ImageField(source='reviewer_id.profile_image', read_only=True)
+
+    class Meta:
+        model = Rating
+        fields = ['id', 'stars', 'comment', 'reviewer_name', 'reviewer_image', 'created_at']
+
+class PublicUserProfileSerializer(serializers.ModelSerializer):
+    rating_average = serializers.SerializerMethodField()
+    recent_comments = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'name', 'profile_image', 'rating_average', 'recent_comments']
+
+    def get_rating_average(self, obj):
+        avg = Rating.objects.filter(reviewed_id=obj).aggregate(avg=Avg('stars'))['avg']
+        return round(avg, 2) if avg else 0
+
+    def get_recent_comments(self, obj):
+        recent = Rating.objects.filter(reviewed_id=obj).order_by('-created_at')[:5]
+        return PublicRatingSerializer(recent, many=True).data
+
 class CustomTokenSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

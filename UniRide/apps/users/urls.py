@@ -28,8 +28,9 @@ urlpatterns = [
     path('user-profile/', UserSelfProfileView.as_view(), name='user_profile'),
     path('user-vehicles/', UserVehicleProfileView.as_view(), name='user_vehicles'),
     path("user-vehicles/<int:vehicle_id>/deactivate/", DeactivateSingleVehicleView.as_view(), name="deactivate-vehicle"),
-    path("user-vehicles/deactivate-all/", DeactivateAllVehiclesView.as_view(), name="deactivate-all-vehicles"),
+    path('user-vehicles/deactivate-all/', DeactivateAllVehiclesView.as_view(), name="deactivate-all-vehicles"),
     path('register/resend-verification-code/', ResendNewVerificationCodeView.as_view(), name='resend-verification-code'),
+    path('public-profile/<int:user_id>/', PublicUserProfileView.as_view(), name='public-user-profile'),
     path('auth/resend-password-reset/', ResendPasswordResetTokenView.as_view(), name='resend-password-reset'),
     #Administra Usuarios
     path('admin/users/', AdminUserListView.as_view(), name='admin_user_list'),
