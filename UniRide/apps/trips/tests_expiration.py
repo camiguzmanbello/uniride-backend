@@ -4,6 +4,7 @@ from rest_framework import status
 from django.utils import timezone
 from apps.users.models import User, Role, Vehicle, VehicleType
 from apps.trips.models import Publication, PublicationType, TripStatus, TripPassengerStatus, Trip, TripPassenger
+from apps.ratings.models import Rating
 import datetime
 
 class PublicationExpirationTests(TestCase):
@@ -31,14 +32,15 @@ class PublicationExpirationTests(TestCase):
         self.type_offer = PublicationType.objects.create(name="Oferta")
         self.type_request = PublicationType.objects.create(name="Solicitud")
 
-        # Setup Trip Statuses
         self.status_pending, _ = TripStatus.objects.get_or_create(name='Pendiente')
         self.status_in_progress, _ = TripStatus.objects.get_or_create(name='En curso')
+        self.status_finished, _ = TripStatus.objects.get_or_create(name='Finalizado')
         
         self.tp_status_pending, _ = TripPassengerStatus.objects.get_or_create(name='Pendiente')
         self.tp_status_accepted, _ = TripPassengerStatus.objects.get_or_create(name='Aceptado')
         self.tp_status_rejected, _ = TripPassengerStatus.objects.get_or_create(name='Rechazado')
         self.tp_status_canceled, _ = TripPassengerStatus.objects.get_or_create(name='Cancelado')
+        self.tp_status_finished, _ = TripPassengerStatus.objects.get_or_create(name='Finalizado')
 
         # Setup Vehicle for Offer
         self.v_type = VehicleType.objects.create(name="Carro")
@@ -266,3 +268,85 @@ class PublicationExpirationTests(TestCase):
         
         pub.refresh_from_db()
         self.assertTrue(pub.is_active)
+
+    def test_get_public_profile(self):
+        # 1. Crear calificaciones para user2 en diferentes viajes
+        def create_trip_and_rating(stars, comment):
+            trip = Trip.objects.create(
+                publication_id=Publication.objects.create(
+                    user_id=self.user1, type_id=self.type_offer, vehicle_id=self.vehicle1,
+                    departure_place="A", destination="B", departure_datetime=timezone.now(),
+                    lat_departure_place=0, lon_departure_place=0, lat_destination=0, lon_destination=0,
+                    available_seats=2
+                ),
+                driver_id=self.user1, status_id=self.status_in_progress
+            )
+            return Rating.objects.create(
+                trip_id=trip, reviewer_id=self.user1, reviewed_id=self.user2,
+                stars=stars, comment=comment
+            )
+        
+        create_trip_and_rating(5, "Excelente pasajero")
+        create_trip_and_rating(4, "Muy puntual")
+
+        # 2. Consultar perfil público de user2
+        self.client.force_authenticate(user=self.user1)
+        resp = self.client.get(f'/api/users/public-profile/{self.user2.id}/')
+        
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['name'], self.user2.name)
+        self.assertEqual(float(resp.data['rating_average']), 4.5)
+        self.assertEqual(len(resp.data['recent_comments']), 2)
+        self.assertEqual(resp.data['recent_comments'][0]['comment'], "Muy puntual")
+        self.assertEqual(resp.data['recent_comments'][0]['reviewer_name'], self.user1.name)
+
+    def test_partial_finalize_sets_pending_finalizado_and_lists_members(self):
+        future_time = timezone.now() + datetime.timedelta(days=1)
+        pub = Publication.objects.create(
+            user_id=self.user1,
+            type_id=self.type_offer,
+            vehicle_id=self.vehicle1,
+            departure_place="Place A",
+            destination="Place B",
+            departure_datetime=future_time,
+            lat_departure_place=1.0,
+            lon_departure_place=1.0,
+            lat_destination=2.0,
+            lon_destination=2.0,
+            available_seats=2,
+            is_active=True
+        )
+        trip = Trip.objects.create(
+            publication_id=pub,
+            driver_id=self.user1,
+            status_id=self.status_in_progress,
+            vehicle_id=self.vehicle1
+        )
+        TripPassenger.objects.create(
+            trip_id=trip,
+            passenger_id=self.user2,
+            status_id=self.tp_status_accepted,
+            seats_reserved=1
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        resp = self.client.post(f'/api/trips/trips/{trip.id}/finalize/')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['trip_status'], 'Pendiente finalizado')
+
+        resp_current = self.client.get('/api/trips/trips/current/')
+        self.assertEqual(resp_current.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_current.data['status'], 'Pendiente finalizado')
+
+        resp_status = self.client.get(f'/api/trips/trips/{trip.id}/finalization_status/')
+        self.assertEqual(resp_status.status_code, status.HTTP_200_OK)
+        finalized = resp_status.data['finalized_members']
+        pending = resp_status.data['pending_members']
+
+        self.assertEqual(len(finalized), 1)
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(finalized[0]['name'], self.user1.name)
+        self.assertEqual(finalized[0]['role'], 'Conductor')
+        self.assertEqual(pending[0]['name'], self.user2.name)
+        self.assertEqual(pending[0]['role'], 'Pasajero')

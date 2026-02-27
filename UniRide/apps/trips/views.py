@@ -129,15 +129,10 @@ class TripViewSet(ModelViewSet):
         """
         user = request.user
         
-        # Viajes donde soy conductor (Solo finalizados/cancelados)
         driven_trips = Trip.objects.filter(driver_id=user).exclude(
-            status_id__name__in=['Pendiente', 'En curso']
+            status_id__name__in=['Pendiente', 'En curso', 'Pendiente finalizado']
         )
         
-        # Viajes donde soy pasajero
-        # Incluir si:
-        # 1. El viaje terminó (Trip status Finalizado/Cancelado)
-        # 2. O si mi participación terminó (Passenger status Rechazado/Cancelado)
         joined_trips = Trip.objects.filter(passengers__passenger_id=user).filter(
             Q(status_id__name__in=['Finalizado', 'Cancelado']) |
             Q(passengers__status_id__name__in=['Rechazado', 'Cancelado'])
@@ -169,9 +164,7 @@ class TripViewSet(ModelViewSet):
         """
         user = request.user
         
-        # 1. Como conductor
-        # Incluimos 'Pendiente' para que el conductor pueda ver su viaje y darle a "Iniciar"
-        active_statuses_driver = ['Pendiente', 'En curso', 'Pendiente Cancelación']
+        active_statuses_driver = ['Pendiente', 'En curso', 'Pendiente Cancelación', 'Pendiente finalizado']
         active_driven = Trip.objects.filter(
             driver_id=user,
             status_id__name__in=active_statuses_driver
@@ -181,22 +174,18 @@ class TripViewSet(ModelViewSet):
             serializer = TripHistorySerializer(active_driven, context={'request': request})
             return Response(serializer.data)
             
-        # 2. Como pasajero aceptado
-        # - Si el viaje está 'En curso' o 'Pendiente Cancelación', mostramos si el pasajero está aceptado/finalizado.
-        # - Si el viaje está 'Pendiente', SOLO mostramos si el pasajero ya fue Aceptado.
         active_joined = Trip.objects.filter(
             passengers__passenger_id=user,
             passengers__status_id__name='Aceptado'
         ).filter(
-            Q(status_id__name__in=['Pendiente', 'En curso', 'Pendiente Cancelación'])
+            Q(status_id__name__in=['Pendiente', 'En curso', 'Pendiente Cancelación', 'Pendiente finalizado'])
         ).first()
         
-        # Caso especial: Pasajero que ya finalizó su parte en un viaje que sigue 'En curso' para otros
         if not active_joined:
             active_joined = Trip.objects.filter(
                 passengers__passenger_id=user,
                 passengers__status_id__name='Finalizado',
-                status_id__name__in=['En curso', 'Pendiente Cancelación']
+                status_id__name__in=['En curso', 'Pendiente Cancelación', 'Pendiente finalizado']
             ).first()
 
         if active_joined:
@@ -510,6 +499,7 @@ class TripViewSet(ModelViewSet):
             
         try:
             finalized_status = TripStatus.objects.get(name='Finalizado')
+            pending_finalized_status, _ = TripStatus.objects.get_or_create(name='Pendiente finalizado')
             passenger_finalized_status = TripPassengerStatus.objects.get(name='Finalizado')
         except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist):
             return Response(
@@ -517,14 +507,10 @@ class TripViewSet(ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # 1. Actualizar estado individual
         if is_driver:
             trip.driver_finalized = True
             trip.save()
         else:
-            # Solo actualizar si es un pasajero activo (Aceptado) o ya finalizado (para idempotencia)
-            # Si el pasajero fue rechazado o cancelado, no debería poder finalizar, pero el filtro inicial lo permite.
-            # Vamos a restringirlo a solo Aceptados o ya Finalizados.
             if passenger_record.status_id.name not in ['Aceptado', 'Finalizado']:
                  return Response(
                     {"detail": "Solo pasajeros aceptados pueden finalizar el viaje."}, 
@@ -535,13 +521,10 @@ class TripViewSet(ModelViewSet):
             passenger_record.finalized_at = timezone.now()
             passenger_record.save()
             
-        # 2. Verificar consenso (Todos han finalizado?)
-        # Condición: Driver finalizó AND No hay pasajeros en estado 'Aceptado' (todos pasaron a Finalizado o se fueron)
-        
-        # Refrescamos el trip por si acaso
         trip.refresh_from_db()
         
         all_passengers_done = not trip.passengers.filter(status_id__name='Aceptado').exists()
+        any_passenger_finalized = trip.passengers.filter(status_id__name='Finalizado').exists()
         
         if trip.driver_finalized and all_passengers_done:
             trip.status_id = finalized_status
@@ -563,9 +546,73 @@ class TripViewSet(ModelViewSet):
                 "trip_status": "Finalizado"
             })
             
+        if trip.driver_finalized or any_passenger_finalized:
+            if trip.status_id != pending_finalized_status:
+                trip.status_id = pending_finalized_status
+                trip.save(update_fields=['status_id'])
+            
         return Response({
             "detail": "Has marcado el viaje como finalizado. Esperando a los demás participantes.",
             "trip_status": trip.status_id.name
+        })
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def finalization_status(self, request, pk=None):
+        trip = self.get_object()
+        finalized_members = []
+        pending_members = []
+
+        driver_data = SimpleUserSerializer(trip.driver_id).data
+        driver_data['role'] = 'Conductor'
+        if trip.driver_finalized:
+            finalized_members.append(driver_data)
+        else:
+            pending_members.append(driver_data)
+
+        passengers_qs = trip.passengers.filter(
+            status_id__name__in=['Aceptado', 'Finalizado']
+        ).select_related('passenger_id', 'status_id')
+
+        for tp in passengers_qs:
+            data = SimpleUserSerializer(tp.passenger_id).data
+            data['role'] = 'Pasajero'
+            if tp.status_id.name == 'Finalizado':
+                finalized_members.append(data)
+            else:
+                pending_members.append(data)
+
+        return Response({
+            "trip_id": trip.id,
+            "trip_status": trip.status_id.name,
+            "finalized_members": finalized_members,
+            "pending_members": pending_members
+        })
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def rateable_members(self, request, pk=None):
+        trip = self.get_object()
+        user = request.user
+        is_driver = trip.driver_id == user
+        is_passenger = trip.passengers.filter(passenger_id=user).exists()
+        if not is_driver and not is_passenger:
+            return Response({"detail": "No eres participante de este viaje."}, status=status.HTTP_403_FORBIDDEN)
+        members = []
+        if is_passenger and trip.driver_id != user:
+            data = SimpleUserSerializer(trip.driver_id).data
+            data['role'] = 'Conductor'
+            members.append(data)
+        passengers_qs = trip.passengers.filter(
+            status_id__name__in=['Aceptado', 'Finalizado']
+        ).select_related('passenger_id', 'status_id')
+        for tp in passengers_qs:
+            if tp.passenger_id == user:
+                continue
+            data = SimpleUserSerializer(tp.passenger_id).data
+            data['role'] = 'Pasajero'
+            members.append(data)
+        return Response({
+            "trip_id": trip.id,
+            "members": members
         })
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])

@@ -49,6 +49,7 @@ class Trip(models.Model):
     vehicle_id = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, related_name='trips', null=True, blank=True)
     status_id = models.ForeignKey(TripStatus, on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
     finalized_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.TextField(null=True, blank=True)
     canceled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='canceled_trips')
