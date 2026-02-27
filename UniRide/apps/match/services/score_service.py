@@ -1,3 +1,7 @@
+from apps.ratings.models import Rating
+from django.db.models import Avg
+
+
 def calculate_score(distance_km, time_diff_min, driver_rating):
     """
     Calcula el score total de compatibilidad.
@@ -15,16 +19,18 @@ def calculate_score(distance_km, time_diff_min, driver_rating):
 
 def driver_rating_score(driver):
     """
-    Normaliza el rating del conductor.
+    Calcula el promedio de estrellas recibidas
+    por el usuario conductor.
     """
-    if not driver.rating:
-        return 0.5
-    return driver.rating / 5
 
-def driver_rating_score(driver):
-    """
-    Normaliza el rating del conductor.
-    """
-    if not driver.rating:
-        return 0.5
-    return driver.rating / 5
+    avg = (
+        Rating.objects
+        .filter(reviewed_id=driver)
+        .aggregate(avg=Avg("stars"))
+        ["avg"]
+    )
+
+    if avg is None:
+        return 0.5  # rating neutro si no tiene calificaciones
+
+    return avg / 5

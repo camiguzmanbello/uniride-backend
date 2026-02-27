@@ -39,7 +39,7 @@ class AdminDashboardView(APIView):
 
 
         # =========================
-        # 👤 Usuarios
+        # Usuarios
         # =========================
         active_users = User.objects.filter(
             role_id=2,
@@ -53,7 +53,7 @@ class AdminDashboardView(APIView):
         ).count()
 
         # =========================
-        # 🚗 Viajes activos
+        # Viajes activos
         # =========================
         active_trips = Trip.objects.filter(
             publication_id__is_active=True,
@@ -63,14 +63,14 @@ class AdminDashboardView(APIView):
         ).count()
 
         # =========================
-        # ⚠️ Quejas pendientes
+        # Quejas pendientes
         # =========================
         pending_complaints = Complaint.objects.filter(
             status_id__name="Pendiente"
         ).count()
 
         # =========================
-        # 📊 Viajes finalizados últimos 7 días
+        # Viajes finalizados últimos 7 días
         # =========================
         days = [start_date + timedelta(days=i) for i in range(7)]
         trip_map = {day: 0 for day in days}
