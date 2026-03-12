@@ -1,9 +1,13 @@
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except Exception:
+    load_dotenv = None
 
-load_dotenv()
+if load_dotenv is not None:
+    load_dotenv()
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -13,10 +17,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-from decouple import config
+try:
+    from decouple import config as env_config
+except Exception:
+    def env_config(key, default=None):
+        if key in os.environ:
+            return os.environ[key]
+        if default is not None:
+            return default
+        raise KeyError(key)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = env_config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -173,9 +185,9 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = 'uniridefacatativa@gmail.com'         
-EMAIL_HOST_PASSWORD = 'fqtr giss kecm idjh'      
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_USER = env_config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env_config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = env_config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 # Usar Cloudinary para archivos de media
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

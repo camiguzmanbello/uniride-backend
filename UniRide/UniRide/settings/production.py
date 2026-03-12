@@ -28,3 +28,15 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Asegurarse de que CSRF confíe en el dominio de Render
 CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
+
+csrf_trusted_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+if csrf_trusted_origins_env:
+    for origin in [o.strip() for o in csrf_trusted_origins_env.split(',') if o.strip()]:
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
+
+cors_allowed_origins_env = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
+if cors_allowed_origins_env:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_allowed_origins_env.split(',') if o.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = []

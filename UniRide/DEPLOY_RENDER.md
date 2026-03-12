@@ -48,8 +48,17 @@ Ve a la sección **Environment** de tu servicio web (`uniride-api`) y agrega:
 | `CLOUDINARY_API_SECRET` | Tu API Secret de Cloudinary |
 | `EMAIL_HOST_USER` | (Opcional) Tu correo para envío de emails |
 | `EMAIL_HOST_PASSWORD` | (Opcional) Tu contraseña de aplicación para emails |
+| `CORS_ALLOWED_ORIGINS` | URLs del frontend separadas por coma (sin espacios) |
+| `CSRF_TRUSTED_ORIGINS` | URLs del frontend separadas por coma (sin espacios) |
 
 > **Nota:** `DATABASE_URL` y `SECRET_KEY` se generan automáticamente gracias al `render.yaml`.
+>
+> **Importante (CORS/CSRF):** en `UniRide/settings/base.py` hay valores de `localhost` para desarrollo. En producción (`UniRide/settings/production.py`) se toman desde estas variables de entorno.
+>
+> Ejemplo:
+>
+> - `CORS_ALLOWED_ORIGINS`: `https://tu-frontend.onrender.com,https://tudominio.com`
+> - `CSRF_TRUSTED_ORIGINS`: `https://tu-frontend.onrender.com,https://tudominio.com`
 
 ## 6. Despliegue
 
