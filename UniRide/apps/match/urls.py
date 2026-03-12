@@ -8,5 +8,5 @@ urlpatterns = [
     path("my-suggestions/", GetMySuggestionsView.as_view()),
     path("my-driver-publications/", HasDriverPublicationView.as_view()),
     path("suggestions/<int:pk>/ignore/", IgnoreSuggestionView.as_view()),
-
+    path("suggestion-groups/",GetSuggestionGroupsView.as_view()),
 ]

@@ -473,9 +473,11 @@ class AuditReportPDFView(APIView):
 def suspension_preview(request):
     suspensions = UserSuspension.objects.select_related(
         "user_id", "admin_id"
-    )
+    ).order_by("-start_date")
 
-    data = build_suspension_data(suspensions)
+    today = timezone.now().date()
+
+    data = build_suspension_data(suspensions, today)
 
     return Response({
         "total": len(data),
@@ -484,14 +486,30 @@ def suspension_preview(request):
 
 # 2. Generar PDF de suspensiones
 class SuspensionReportPDFView(APIView):
+
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
+
         suspensions = UserSuspension.objects.select_related(
             "user_id", "admin_id"
         ).order_by("-start_date")
 
-        data = build_suspension_data(suspensions)
+        today = timezone.now().date()
+
+        data = build_suspension_data(suspensions, today)
+
+        permanent_suspensions = [
+            s for s in data if s["is_permanent"]
+        ]
+
+        temporary_active = [
+            s for s in data if not s["is_permanent"] and s["status"] == "ACTIVA"
+        ]
+
+        temporary_expired = [
+            s for s in data if not s["is_permanent"] and s["status"] == "VENCIDA"
+        ]
 
         context = {
             "report_title": "Reporte de Suspensiones",
@@ -499,10 +517,15 @@ class SuspensionReportPDFView(APIView):
             "generated_at": timezone.now().strftime("%d/%m/%Y %H:%M"),
             "generated_by": request.user.name if request.user.is_authenticated else "Sistema",
 
-            "suspensions": data,
             "total": len(data),
-            "total_permanent": len([s for s in data if s["is_permanent"]]),
-            "total_temporary": len([s for s in data if not s["is_permanent"]]),
+
+            "total_permanent": len(permanent_suspensions),
+            "total_temp_active": len(temporary_active),
+            "total_temp_expired": len(temporary_expired),
+
+            "permanent_suspensions": permanent_suspensions,
+            "temporary_active": temporary_active,
+            "temporary_expired": temporary_expired,
         }
 
         return generate_pdf(
@@ -510,4 +533,3 @@ class SuspensionReportPDFView(APIView):
             context,
             "reporte_suspensiones"
         )
-

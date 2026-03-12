@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-TIME_WINDOW_MINUTES = 30
+TIME_WINDOW_MINUTES = 45
 
 def is_time_compatible(driver_time, passenger_time):
     """
