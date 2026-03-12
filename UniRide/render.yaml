@@ -7,9 +7,11 @@ services:
   - type: web
     name: uniride-api
     env: python
-    buildCommand: "./build.sh"
+    buildCommand: "bash ./build.sh"
     startCommand: "gunicorn UniRide.wsgi:application"
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.9
       - key: DATABASE_URL
         fromDatabase:
           name: uniride_db

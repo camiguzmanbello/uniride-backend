@@ -7,7 +7,7 @@ Esta guía te ayudará a desplegar tu proyecto Django en Render.com paso a paso.
 El proyecto ya ha sido configurado con los archivos necesarios para el despliegue:
 
 *   **`requirements.txt`**: Lista de dependencias actualizada (incluye `gunicorn`, `dj-database-url`, `whitenoise`).
-*   **`render.yaml`**: Archivo de configuración "Blueprint" para Render (define la base de datos y el servicio web).
+*   **`render.yaml`**: Archivo de configuración para Render (define la base de datos y el servicio web).
 *   **`build.sh`**: Script de construcción que instala dependencias, recopila archivos estáticos, aplica migraciones y **crea un superusuario automáticamente**.
 *   **`UniRide/settings/production.py`**: Configuración específica para producción.
 
@@ -18,22 +18,20 @@ Si no tienes una cuenta, regístrate en [https://render.com/](https://render.com
 ## 3. Conectar con GitHub/GitLab
 
 1.  Sube tu código a un repositorio en GitHub o GitLab si aún no lo has hecho.
-2.  En el dashboard de Render, haz clic en **New +** y selecciona **Blueprint**.
-3.  Conecta tu cuenta de GitHub/GitLab y selecciona el repositorio de `UniRide`.
+2.  Conecta tu cuenta de GitHub/GitLab y selecciona el repositorio.
 
-## 4. Configuración del Blueprint
+## 4. Configuración en Render
 
-Render detectará automáticamente el archivo `render.yaml`.
+Este repo tiene el proyecto Django dentro de la carpeta `UniRide/`. Por eso en Render debes elegir una de estas opciones:
 
-1.  Verás que se crearán dos servicios:
-    *   `uniride_db`: Una base de datos PostgreSQL.
-    *   `uniride-api`: El servicio web de tu aplicación.
-2.  **IMPORTANTE**: Render te pedirá valores para las variables de entorno definidas en `render.yaml`. Debes rellenar:
-    *   `DJANGO_SUPERUSER_EMAIL`: El correo para tu usuario administrador (ej. `admin@uniride.com`).
-    *   `DJANGO_SUPERUSER_PASSWORD`: La contraseña para tu usuario administrador.
-    *   `DJANGO_SUPERUSER_NAME`: (Opcional, por defecto "Admin")
-    *   `DJANGO_SUPERUSER_PHONE`: (Opcional, por defecto "0000000000")
-3.  Haz clic en **Apply**.
+1.  **Configurar Root Directory = `UniRide` en el servicio** (recomendado si ya creaste el servicio).
+2.  **Mover `render.yaml` al root del repo** si quieres usar Render Blueprints (el archivo debe estar en la raíz del repositorio para que Render lo detecte automáticamente).
+
+Si estás creando el servicio manualmente, usa estos valores:
+
+*   **Root Directory**: `UniRide`
+*   **Build Command**: `bash ./build.sh`
+*   **Start Command**: `gunicorn UniRide.wsgi:application`
 
 ## 5. Variables de Entorno Adicionales
 
@@ -48,6 +46,7 @@ Ve a la sección **Environment** de tu servicio web (`uniride-api`) y agrega:
 | `CLOUDINARY_API_SECRET` | Tu API Secret de Cloudinary |
 | `EMAIL_HOST_USER` | (Opcional) Tu correo para envío de emails |
 | `EMAIL_HOST_PASSWORD` | (Opcional) Tu contraseña de aplicación para emails |
+| `PYTHON_VERSION` | Versión de Python (recomendado fijar una estable, ej. `3.12.9`) |
 | `CORS_ALLOWED_ORIGINS` | URLs del frontend separadas por coma (sin espacios) |
 | `CSRF_TRUSTED_ORIGINS` | URLs del frontend separadas por coma (sin espacios) |
 
@@ -62,10 +61,10 @@ Ve a la sección **Environment** de tu servicio web (`uniride-api`) y agrega:
 
 ## 6. Despliegue
 
-Una vez que hayas aplicado el Blueprint y configurado las variables, Render comenzará el proceso.
+Una vez que hayas configurado el servicio y las variables, Render comenzará el proceso.
 
 1.  Clonará el repositorio.
-2.  Ejecutará `./build.sh`. Esto incluirá:
+2.  Ejecutará `bash ./build.sh`. Esto incluirá:
     *   `pip install ...`
     *   `collectstatic`
     *   `migrate`
