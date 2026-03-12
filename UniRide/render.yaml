@@ -1,0 +1,30 @@
+databases:
+  - name: uniride_db
+    databaseName: uniride
+    user: uniride_user
+
+services:
+  - type: web
+    name: uniride-api
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn UniRide.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: uniride_db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DJANGO_SETTINGS_MODULE
+        value: UniRide.settings.production
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+      - key: DJANGO_SUPERUSER_NAME
+        value: "Admin"
+      - key: DJANGO_SUPERUSER_PHONE
+        value: "0000000000"
