@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>{{ report_title }}</title>
+
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9.5px;
+    color: #1F2937;
+}
+
+/* ===== HEADER ===== */
+.header-table {
+    width: 100%;
+    border-bottom: 2px solid #1A4D45;
+    margin-bottom: 14px;
+}
+
+.logo { width: 65px; }
+
+.title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #1A4D45;
+}
+
+.meta {
+    font-size: 9px;
+    color: #6B7280;
+}
+
+/* ===== SUMMARY ===== */
+.summary {
+    font-size: 10px;
+    margin-bottom: 14px;
+    font-weight: bold;
+}
+
+/* ===== USER CARD ===== */
+.user-card {
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 14px;
+    background: #FAFAFA;
+}
+
+/* USER HEADER */
+.user-header-table {
+    width: 100%;
+    margin-bottom: 0px;
+}
+
+.user-name {
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #1A4D45;
+}
+
+.user-stats {
+    text-align: center;
+    font-size: 9.5px;
+    color: #374151;
+}
+
+/* DIVIDER */
+.divider {
+    border-bottom: 1px solid #E5E7EB;
+    margin: 3px 0 4px;
+}
+
+/* ===== RATINGS LIST ===== */
+.ratings-title {
+    font-size: 10px;
+    font-weight: bold;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+/* RATING ROW */
+.rating-row {
+    width: 100%;
+    border-bottom: 1px dashed #E5E7EB;
+    padding: 2px 0;
+}
+
+.rating-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.rating-left {
+    width: 40%;
+    font-size: 9px;
+}
+
+.rating-center {
+    width: 15%;
+    text-align: center;
+    font-size: 9px;
+    font-weight: bold;
+    color: #B45309;
+}
+
+.rating-right {
+    width: 45%;
+    font-size: 9px;
+    color: #374151;
+}
+
+/* EMPTY */
+.empty {
+    text-align: center;
+    font-size: 10px;
+    color: #6B7280;
+    margin: 24px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== HEADER ===== -->
+<table class="header-table">
+    <tr>
+        <td width="20%" align="center">
+            <img src="reports_assets/uniride_logo.png" class="logo" />
+        </td>
+        <td width="80%">
+            <div class="title">{{ report_title }}</div>
+            <div class="meta">{{ report_subtitle }}</div>
+            <div class="meta">
+                Generado el {{ generated_at }} por {{ generated_by }}
+            </div>
+        </td>
+    </tr>
+</table>
+
+<div class="summary">
+Total de calificaciones registradas: {{ total }}
+</div>
+
+{% if users %}
+    {% for u in users %}
+    <div class="user-card">
+
+        <!-- USER HEADER -->
+        <table class="user-header-table">
+            <tr>
+                <td class="user-name">
+                    {{ u.user.name }}
+                </td>
+            </tr>
+            <tr>
+                <td class="user-stats">
+                    Promedio: {{ u.average }} / 5 |
+                    Total de calificaciones: {{ u.total }}
+                </td>
+            </tr>
+        </table>
+
+        <div class="divider"></div>
+
+        <!-- RATINGS -->
+        <div class="ratings-title">
+            Lista de calificadores
+        </div>
+
+        {% for r in u.ratings %}
+        <div class="rating-row">
+            <table class="rating-table">
+                <tr>
+                    <td class="rating-left">
+                        {{ r.reviewer_id.name }}<br/>
+                        {{ r.created_at|date:"d/m/Y" }}
+                    </td>
+
+                    <td class="rating-center">
+                        {{ r.stars }} / 5
+                    </td>
+
+                    <td class="rating-right">
+                        {% if r.comment %}
+                            {{ r.comment }}
+                        {% else %}
+                            Sin observaciones
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% endfor %}
+
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty">
+No existen calificaciones registradas en el sistema.
+</div>
+{% endif %}
+
+</body>
+</html>

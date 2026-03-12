@@ -14,8 +14,8 @@ class Publication(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='publications')
     type_id = models.ForeignKey(PublicationType, on_delete=models.PROTECT)
     vehicle_id = models.ForeignKey(Vehicle, null=True, blank=True, on_delete=models.SET_NULL)
-    departure_place = models.CharField(max_length=100)
-    destination = models.CharField(max_length=100)
+    departure_place = models.CharField(max_length=500)
+    destination = models.CharField(max_length=500)
     departure_datetime = models.DateTimeField()
     lat_departure_place = models.FloatField()
     lon_departure_place = models.FloatField()
@@ -46,11 +46,16 @@ class TripStatus(models.Model):
 class Trip(models.Model):
     publication_id = models.OneToOneField(Publication, on_delete=models.CASCADE, related_name='trip')
     driver_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='driven_trips')
+    vehicle_id = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, related_name='trips', null=True, blank=True)
     status_id = models.ForeignKey(TripStatus, on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
     finalized_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.TextField(null=True, blank=True)
+    canceled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='canceled_trips')
     auto_finalized = models.BooleanField(default=False)
+    driver_finalized = models.BooleanField(default=False)
+    driver_cancellation_ack = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Viaje de {self.driver_id.name} - Estado: {self.status_id.name}"
@@ -72,6 +77,7 @@ class TripPassenger(models.Model):
     finalized_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.TextField(null=True, blank=True)
     auto_finalized = models.BooleanField(default=False)
+    cancellation_ack = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('trip_id', 'passenger_id')

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>{{ report_title }}</title>
+
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9.5px;
+    color: #1F2937;
+}
+
+/* ===== HEADER ===== */
+.header-table {
+    width: 100%;
+    border-bottom: 2px solid #1A4D45;
+    margin-bottom: 10px;
+}
+
+.logo {
+    width: 65px;
+}
+
+.title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #1A4D45;
+}
+
+.meta {
+    font-size: 9px;
+    color: #6B7280;
+}
+
+/* ===== SUMMARY ===== */
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 18px;
+}
+
+.summary-table th,
+.summary-table td {
+    border: 1px solid #D1D5DB;
+    padding: 6px 10px;
+    font-size: 9.5px;
+}
+
+.summary-table th {
+    background: #F3F4F6;
+    text-align: left;
+    font-weight: bold;
+}
+
+.summary-table td {
+    text-align: right;
+    width: 30%;
+}
+
+/* ===== SECTION ===== */
+.section-title {
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 16px 0 4px;
+}
+
+.section-divider {
+    width: 50%;
+    margin: 0 auto 8px;
+    border-bottom: 1px solid #D1D5DB;
+}
+
+/* ===== CARDS ===== */
+.complaint-card {
+    border-radius: 5px;
+    padding: 6px;
+    margin-bottom: 6px;
+}
+
+.behavioral {
+    border: 1px solid #F3B4B4;
+    background: #FEF2F2;
+}
+
+.technical {
+    border: 1px solid #B6DAF2;
+    background: #EFF6FF;
+}
+
+.card-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.card-left {
+    width: 30%;
+    padding-right: 6px;
+    vertical-align: top;
+    border-right: 1px solid rgba(0,0,0,0.08);
+}
+
+.card-right {
+    width: 70%;
+    padding-left: 6px;
+    vertical-align: top;
+}
+
+/* ===== TEXT ===== */
+.label {
+    font-size: 8px;
+    text-transform: uppercase;
+    color: #6B7280;
+}
+
+.value {
+    font-size: 9.5px;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.meta-row {
+    font-size: 9px;
+    margin-bottom: 2px;
+}
+
+.status {
+    font-weight: bold;
+}
+
+.status-pendiente { color: #B45309; }
+.status-resuelta { color: #047857; }
+.status-rechazada { color: #B91C1C; }
+
+.empty {
+    text-align: center;
+    font-size: 9px;
+    color: #6B7280;
+    margin: 8px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<table class="header-table">
+    <tr>
+        <td width="20%" align="center">
+            <img src="reports_assets/uniride_logo.png" class="logo" />
+        </td>
+        <td width="80%">
+            <div class="title">{{ report_title }}</div>
+            <div class="meta">{{ report_subtitle }}</div>
+            <div class="meta">
+                Generado el {{ generated_at }} por {{ generated_by }}
+            </div>
+        </td>
+    </tr>
+</table>
+
+<!-- SUMMARY -->
+<table class="summary-table">
+    <tr>
+        <th>Total de quejas</th>
+        <td>{{ total }}</td>
+    </tr>
+    <tr>
+        <th>Quejas de comportamiento</th>
+        <td>{{ total_behavioral }}</td>
+    </tr>
+    <tr>
+        <th>Quejas técnicas</th>
+        <td>{{ total_technical }}</td>
+    </tr>
+</table>
+
+<!-- COMPORTAMIENTO -->
+<div class="section-title" style="color:#991B1B;">QUEJAS DE COMPORTAMIENTO</div>
+<div class="section-divider"></div>
+
+{% for c in behavioral_complaints %}
+<div class="complaint-card behavioral">
+    <table class="card-table">
+        <tr>
+            <td class="card-left">
+                <div class="label">Reporta</div>
+                <div class="value">{{ c.reporter_id.name }}</div>
+
+                <div class="label">Reportado</div>
+                <div class="value">{{ c.reported_user_id.name }}</div>
+            </td>
+            <td class="card-right">
+                <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
+                <div class="meta-row">{{ c.description }}</div>
+
+                <div class="meta-row status status-{{ c.status_id.name|lower }}">
+                    Estado: {{ c.status_id.name }}
+                </div>
+
+                {% if c.status_id.name == "Resuelta" and c.admin_id %}
+                <div class="meta-row">
+                    Resuelta por: {{ c.admin_id.name }}
+                </div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</div>
+{% empty %}
+<div class="empty">No hay quejas de comportamiento registradas.</div>
+{% endfor %}
+
+<!-- TECNICAS -->
+<div class="section-title" style="color:#1E3A8A;">QUEJAS TÉCNICAS</div>
+<div class="section-divider"></div>
+
+{% for c in technical_complaints %}
+<div class="complaint-card technical">
+    <table class="card-table">
+        <tr>
+            <td class="card-left">
+                <div class="label">Reporta</div>
+                <div class="value">{{ c.reporter_id.name }}</div>
+            </td>
+            <td class="card-right">
+                <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
+                <div class="meta-row">{{ c.description }}</div>
+
+                <div class="meta-row status status-{{ c.status_id.name|lower }}">
+                    Estado: {{ c.status_id.name }}
+                </div>
+
+                {% if c.status_id.name == "Resuelta" and c.admin_id %}
+                <div class="meta-row">
+                    Resuelta por: {{ c.admin_id.name }}
+                </div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</div>
+{% empty %}
+<div class="empty">No hay quejas técnicas registradas.</div>
+{% endfor %}
+
+</body>
+</html>
