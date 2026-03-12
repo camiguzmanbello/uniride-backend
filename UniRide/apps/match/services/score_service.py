@@ -2,20 +2,25 @@ from apps.ratings.models import Rating
 from django.db.models import Avg
 
 
-def calculate_score(distance_km, time_diff_min, driver_rating):
-    """
-    Calcula el score total de compatibilidad.
-    Retorna un valor entre 0 y 1.
-    """
-    distance_score = max(0, 1 - (distance_km / 5))
-    time_score = max(0, 1 - (time_diff_min / 30))
+def calculate_score(distance_km, time_diff_min, route_deviation_km, driver_rating):
+
+    MAX_DISTANCE = 2
+    MAX_TIME = 45
+    MAX_DETOUR = 15
+
+    distance_score = max(0, 1 - (distance_km / MAX_DISTANCE))
+    time_score = max(0, 1 - (time_diff_min / MAX_TIME))
+    route_score = max(0, 1 - (route_deviation_km / MAX_DETOUR))
     rating_score = driver_rating / 5
 
-    return (
-        distance_score * 0.4 +
-        time_score * 0.3 +
-        rating_score * 0.3
+    score = (
+        distance_score * 0.35 +
+        time_score * 0.25 +
+        route_score * 0.25 +
+        rating_score * 0.15
     )
+
+    return round(score, 3)
 
 def driver_rating_score(driver):
     """

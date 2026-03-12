@@ -510,8 +510,7 @@ class RoleView(APIView):
 
 
 class UserView(viewsets.ModelViewSet):
-    # debe ser solo para admins
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     queryset = User.objects.all()
     serializer_class = UserSerializer
 

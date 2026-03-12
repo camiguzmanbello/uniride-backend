@@ -141,23 +141,21 @@ Temporales vencidas: {{ total_temp_expired }}
 </div>
 
 <!-- PERMANENTES -->
-<div class="section-title permanent">SUSPENSIONES PERMANENTES</div>
-<div class="divider"></div>
-
-{% if permanent %}
-{% for s in permanent %}
+{% if permanent_suspensions %}
+{% for s in permanent_suspensions %}
 <div class="card">
 <table class="card-table">
 <tr>
-    <td class="card-left permanent">
-        {{ s.user_id.name }}<br />
-        <span class="badge badge-permanent">PERMANENTE</span>
-    </td>
-    <td class="card-right">
-        <div class="row">Administrador: {{ s.admin_id.name }}</div>
-        <div class="row">Desde: {{ s.start_date|date:"d/m/Y" }}</div>
-        <div class="row">Motivo: {{ s.reason }}</div>
-    </td>
+<td class="card-left permanent">
+{{ s.user }}<br />
+<span class="badge badge-permanent">PERMANENTE</span>
+</td>
+
+<td class="card-right">
+<div class="row">Administrador: {{ s.admin }}</div>
+<div class="row">Desde: {{ s.start }}</div>
+</td>
+
 </tr>
 </table>
 </div>
@@ -167,26 +165,24 @@ Temporales vencidas: {{ total_temp_expired }}
 {% endif %}
 
 <!-- TEMPORALES ACTIVAS -->
-<div class="section-title active">SUSPENSIONES TEMPORALES ACTIVAS</div>
-<div class="divider"></div>
-
 {% if temporary_active %}
 {% for s in temporary_active %}
 <div class="card">
 <table class="card-table">
 <tr>
-    <td class="card-left active">
-        {{ s.user_id.name }}<br />
-        <span class="badge badge-active">ACTIVA</span>
-    </td>
-    <td class="card-right">
-        <div class="row">Administrador: {{ s.admin_id.name }}</div>
-        <div class="row">
-            Periodo: {{ s.start_date|date:"d/m/Y" }} -
-            {{ s.end_date|date:"d/m/Y" }}
-        </div>
-        <div class="row">Motivo: {{ s.reason }}</div>
-    </td>
+
+<td class="card-left active">
+{{ s.user }}<br />
+<span class="badge badge-active">ACTIVA</span>
+</td>
+
+<td class="card-right">
+<div class="row">Administrador: {{ s.admin }}</div>
+<div class="row">
+Periodo: {{ s.start }} - {{ s.end }}
+</div>
+</td>
+
 </tr>
 </table>
 </div>
@@ -196,26 +192,24 @@ Temporales vencidas: {{ total_temp_expired }}
 {% endif %}
 
 <!-- TEMPORALES VENCIDAS -->
-<div class="section-title expired">SUSPENSIONES TEMPORALES VENCIDAS</div>
-<div class="divider"></div>
-
 {% if temporary_expired %}
 {% for s in temporary_expired %}
 <div class="card">
 <table class="card-table">
 <tr>
-    <td class="card-left expired">
-        {{ s.user_id.name }}<br />
-        <span class="badge badge-expired">VENCIDA</span>
-    </td>
-    <td class="card-right">
-        <div class="row">Administrador: {{ s.admin_id.name }}</div>
-        <div class="row">
-            Periodo: {{ s.start_date|date:"d/m/Y" }} -
-            {{ s.end_date|date:"d/m/Y" }}
-        </div>
-        <div class="row">Motivo: {{ s.reason }}</div>
-    </td>
+
+<td class="card-left expired">
+{{ s.user }}<br />
+<span class="badge badge-expired">VENCIDA</span>
+</td>
+
+<td class="card-right">
+<div class="row">Administrador: {{ s.admin }}</div>
+<div class="row">
+Periodo: {{ s.start }} - {{ s.end }}
+</div>
+</td>
+
 </tr>
 </table>
 </div>

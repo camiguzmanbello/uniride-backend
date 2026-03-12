@@ -338,6 +338,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
     ratings = serializers.SerializerMethodField()
     rating_average = serializers.SerializerMethodField()
     suspension_info = serializers.SerializerMethodField()
+    is_suspended = serializers.SerializerMethodField()
     complaints_made = serializers.SerializerMethodField()
     class Meta:
         model = User
@@ -461,31 +462,43 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
         return round(avg, 2) if avg else None
 
     def get_suspension_info(self, user):
-        now = timezone.now()
+        return check_and_handle_suspension(user)
+    def get_is_suspended(self, user):
+        suspension = check_and_handle_suspension(user)
+        return suspension is not None
 
-        suspension = UserSuspension.objects.filter(
-            user_id=user
-        ).order_by('-start_date').first()
 
-        if not suspension:
-            return None
+def check_and_handle_suspension(user):
+    now = timezone.now()
 
-        # Permanente
-        if suspension.is_permanent:
-            return {
-                "is_permanent": True,
-                "remaining_days": None,
-                "reason": suspension.reason,
-            }
+    suspension = UserSuspension.objects.filter(
+        user_id=user
+    ).order_by('-start_date').first()
 
-        # Temporal
-        if suspension.end_date and suspension.end_date > now:
-            remaining_days = (suspension.end_date.date() - now.date()).days
-            return {
-                "is_permanent": False,
-                "remaining_days": max(remaining_days, 0),
-                "reason": suspension.reason,
-            }
-
+    if not suspension:
         return None
 
+    # permanente
+    if suspension.is_permanent:
+        return {
+            "is_permanent": True,
+            "remaining_days": None,
+            "reason": suspension.reason,
+        }
+
+    # temporal activa
+    if suspension.end_date and suspension.end_date > now:
+        remaining_days = (suspension.end_date.date() - now.date()).days
+
+        return {
+            "is_permanent": False,
+            "remaining_days": max(remaining_days, 0),
+            "reason": suspension.reason,
+        }
+
+    # 🔹 si llegó aquí significa que ya expiró
+    if user.is_suspended:
+        user.is_suspended = False
+        user.save(update_fields=["is_suspended"])
+
+    return None

@@ -1,14 +1,17 @@
 from django.utils import timezone
-def build_suspension_data(suspensions):
-    today = timezone.now().date()
+from django.utils import timezone
+
+def build_suspension_data(suspensions, today):
     data = []
 
     for s in suspensions:
+        end_date = s.end_date.date() if s.end_date else None
+
         item = {
             "user": s.user_id.name,
             "admin": s.admin_id.name,
-            "start": s.start_date,
-            "end": s.end_date,
+            "start": s.start_date.strftime("%d/%m/%Y"),
+            "end": s.end_date.strftime("%d/%m/%Y") if s.end_date else None,
             "is_permanent": s.is_permanent,
         }
 
@@ -19,11 +22,11 @@ def build_suspension_data(suspensions):
                 "days_remaining": None,
             })
         else:
-            if s.end_date and s.end_date >= today:
+            if end_date and end_date >= today:
                 item.update({
                     "type": "Temporal",
                     "status": "ACTIVA",
-                    "days_remaining": (s.end_date - today).days,
+                    "days_remaining": (end_date - today).days,
                 })
             else:
                 item.update({
@@ -35,4 +38,3 @@ def build_suspension_data(suspensions):
         data.append(item)
 
     return data
-

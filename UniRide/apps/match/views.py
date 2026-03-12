@@ -9,6 +9,7 @@ from apps.match.models import MatchSuggestion
 from apps.match.services.matching_service import generate_suggestions_for_driver
 from apps.trips.models import Publication
 from apps.match.models import MatchSuggestion
+from apps.match.services.grouping_service import build_groups_from_suggestions
 
 class GenerateSuggestionsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -99,6 +100,7 @@ class GetMySuggestionsView(APIView):
                 "suggestion_id": suggestion.id,
                 "score": suggestion.score,
                 "passenger": {
+                    "name": passenger.user_id.name,
                     "publication_id": passenger.id,
                     "departure_place": passenger.departure_place,
                     "destination": passenger.destination,
@@ -144,3 +146,30 @@ class IgnoreSuggestionView(APIView):
         
         except MatchSuggestion.DoesNotExist:
             return Response({"error":"No encontrada"}, status=404)
+
+
+class GetSuggestionGroupsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        driver_publications = Publication.objects.filter(
+            user_id=request.user,
+            type_id=2,
+            is_active=True
+        )
+
+        suggestions = (
+            MatchSuggestion.objects
+            .filter(
+                driver_publication__in=driver_publications,
+                is_active=True
+            )
+            .select_related("passenger_publication")
+        )
+
+        groups = build_groups_from_suggestions(suggestions)
+
+        return Response({
+            "groups": groups
+        })
