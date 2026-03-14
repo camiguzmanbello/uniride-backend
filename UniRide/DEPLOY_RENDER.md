@@ -31,7 +31,7 @@ Si estás creando el servicio manualmente, usa estos valores:
 
 *   **Root Directory**: `UniRide`
 *   **Build Command**: `bash ./build.sh`
-*   **Start Command**: `gunicorn UniRide.wsgi:application`
+*   **Start Command**: `gunicorn UniRide.wsgi:application --bind 0.0.0.0:$PORT --workers $WEB_CONCURRENCY --timeout 120`
 
 ## 5. Variables de Entorno Adicionales
 

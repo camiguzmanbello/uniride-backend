@@ -8,7 +8,7 @@ services:
     name: uniride-api
     env: python
     buildCommand: "bash ./build.sh"
-    startCommand: "gunicorn UniRide.wsgi:application"
+    startCommand: "gunicorn UniRide.wsgi:application --bind 0.0.0.0:$PORT --workers $WEB_CONCURRENCY --timeout 120 --access-logfile - --error-logfile -"
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.9
@@ -19,7 +19,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: WEB_CONCURRENCY
-        value: 4
+        value: 1
       - key: DJANGO_SETTINGS_MODULE
         value: UniRide.settings.production
       - key: DJANGO_SUPERUSER_EMAIL
