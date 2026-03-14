@@ -49,6 +49,7 @@ Ve a la sección **Environment** de tu servicio web (`uniride-api`) y agrega:
 | `PYTHON_VERSION` | Versión de Python (recomendado fijar una estable, ej. `3.12.9`) |
 | `CORS_ALLOWED_ORIGINS` | URLs del frontend separadas por coma (sin espacios) |
 | `CSRF_TRUSTED_ORIGINS` | URLs del frontend separadas por coma (sin espacios) |
+| `CORS_ALLOWED_ORIGIN_REGEXES` | (Opcional) Regex para permitir subdominios variables |
 
 > **Nota:** `DATABASE_URL` y `SECRET_KEY` se generan automáticamente gracias al `render.yaml`.
 >
@@ -58,6 +59,10 @@ Ve a la sección **Environment** de tu servicio web (`uniride-api`) y agrega:
 >
 > - `CORS_ALLOWED_ORIGINS`: `https://tu-frontend.onrender.com,https://tudominio.com`
 > - `CSRF_TRUSTED_ORIGINS`: `https://tu-frontend.onrender.com,https://tudominio.com`
+>
+> Si estás usando despliegues preview en Vercel (dominios que cambian), puedes usar:
+>
+> - `CORS_ALLOWED_ORIGIN_REGEXES`: `^https://uniride-front.*\\.vercel\\.app$`
 
 ## 6. Despliegue
 
