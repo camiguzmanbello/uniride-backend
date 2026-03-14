@@ -16,7 +16,7 @@ def generar_respuesta_con_tokens(user, message="Operación exitosa"):
         value=access_token,
         httponly=True,
         secure=True,
-        samesite="Lax",
+        samesite="None",
         max_age=60 * 15  # 15 minutos
     )
     response.set_cookie(
@@ -24,7 +24,7 @@ def generar_respuesta_con_tokens(user, message="Operación exitosa"):
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite="Lax",
+        samesite="None",
         max_age=60 * 60 * 24 * 7  # 7 días
     )
 
@@ -36,7 +36,7 @@ def set_tokens_en_response(response: Response, access_token: str, refresh_token:
         value=access_token,
         httponly=True,
         secure=True,
-        samesite="Lax",
+        samesite="None",
         max_age=60 * 15
     )
     response.set_cookie(
@@ -44,7 +44,7 @@ def set_tokens_en_response(response: Response, access_token: str, refresh_token:
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite="Lax",
+        samesite="None",
         max_age=60 * 60 * 24 * 7
     )
     return response

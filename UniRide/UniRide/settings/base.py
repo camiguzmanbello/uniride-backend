@@ -203,11 +203,3 @@ CLOUDINARY_STORAGE = {
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 DEFAULT_PROFILE_IMAGE = "https://res.cloudinary.com/dzgcubnp2/image/upload/v1765315248/placeholder-user_h1zyal.png"
-
-# Permite que la cookie se envíe en peticiones Cross-Site (entre dominios diferentes)
-SESSION_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SAMESITE = 'None'
-
-# Obligatorio cuando SameSite es 'None' (requiere HTTPS)
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
