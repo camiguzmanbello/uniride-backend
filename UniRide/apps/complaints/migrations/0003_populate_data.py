@@ -11,8 +11,7 @@ def populate_complaints(apps, schema_editor):
     ]
     
     for t in types:
-        if not ComplaintType.objects.filter(name=t["name"]).exists():
-            ComplaintType.objects.create(name=t["name"], description=t["description"])
+        ComplaintType.objects.get_or_create(name=t["name"], defaults={'description': t["description"]})
 
     # ComplaintStatus data
     statuses = [
@@ -21,8 +20,7 @@ def populate_complaints(apps, schema_editor):
     ]
     
     for s in statuses:
-        if not ComplaintStatus.objects.filter(name=s["name"]).exists():
-            ComplaintStatus.objects.create(name=s["name"])
+        ComplaintStatus.objects.get_or_create(name=s["name"])
 
 class Migration(migrations.Migration):
 

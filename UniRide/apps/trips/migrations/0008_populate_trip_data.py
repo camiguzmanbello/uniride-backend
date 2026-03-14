@@ -32,7 +32,7 @@ def populate_trips_data(apps, schema_editor):
     
     for pk, name in passenger_statuses:
         if not TripPassengerStatus.objects.filter(pk=pk).exists():
-            TripPassengerStatus.objects.create(pk=pk, name=name)
+            TripPassengerStatus.objects.get_or_create(pk=pk, defaults={'name': name})
 
     # TripStatus
     # id, name
@@ -45,7 +45,7 @@ def populate_trips_data(apps, schema_editor):
     
     for pk, name in trip_statuses:
         if not TripStatus.objects.filter(pk=pk).exists():
-            TripStatus.objects.create(pk=pk, name=name)
+            TripStatus.objects.get_or_create(pk=pk, defaults={'name': name})
 
 class Migration(migrations.Migration):
 

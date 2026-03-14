@@ -13,7 +13,7 @@ def populate_users_data(apps, schema_editor):
     
     for pk, name in roles:
         if not Role.objects.filter(pk=pk).exists():
-            Role.objects.create(pk=pk, name=name)
+            Role.objects.get_or_create(pk=pk, defaults={'name': name})
         elif not Role.objects.filter(pk=pk, name=name).exists():
             pass
 
@@ -26,7 +26,7 @@ def populate_users_data(apps, schema_editor):
     
     for pk, name in vehicle_types:
         if not VehicleType.objects.filter(pk=pk).exists():
-            VehicleType.objects.create(pk=pk, name=name)
+            VehicleType.objects.get_or_create(pk=pk, defaults={'name': name})
 
 class Migration(migrations.Migration):
 
