@@ -476,15 +476,35 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            response = Response({"message": "Logout exitoso"},
-                                status=status.HTTP_200_OK)
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
+            response = Response(
+                {"message": "Logout exitoso"},
+                status=status.HTTP_200_OK
+            )
+
+            response.set_cookie(
+                key="access_token",
+                value="",
+                httponly=True,
+                secure=True,
+                samesite="None",
+                max_age=0
+            )
+
+            response.set_cookie(
+                key="refresh_token",
+                value="",
+                httponly=True,
+                secure=True,
+                samesite="None",
+                max_age=0
+            )
+
             return response
+
         except Exception as e:
             logger.error(f"Error durante logout: {str(e)}")
             return Response(
-                {"error": "Ocurrió un error durante el logout. Inténtalo más tarde."},
+                {"error": "Ocurrió un error durante el logout."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
