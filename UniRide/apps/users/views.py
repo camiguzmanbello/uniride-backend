@@ -317,7 +317,7 @@ class PreRegisterAdminView(APIView):
         # CORREO HTML CON LOGO
         # ===========================
 
-        confirmation_url = f"http://localhost:5173/confirm-admin/"
+        confirmation_url = f"https://app.unirideweb.online/confirm-admin/"
 
         logo_path = Path(settings.BASE_DIR) / "email_assets" / "logo-uniride2.png"
         
@@ -487,6 +487,7 @@ class LogoutView(APIView):
                 httponly=True,
                 secure=True,
                 samesite="None",
+                domain=".unirideweb.online",
                 max_age=0
             )
 
@@ -496,6 +497,7 @@ class LogoutView(APIView):
                 httponly=True,
                 secure=True,
                 samesite="None",
+                domain=".unirideweb.online",
                 max_age=0
             )
 

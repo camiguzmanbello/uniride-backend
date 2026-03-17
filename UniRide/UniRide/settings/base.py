@@ -30,10 +30,6 @@ except Exception:
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env_config('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -66,22 +62,12 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'apps.core.middleware.ForzarIdiomaMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  
-    "http://127.0.0.1:5173" 
-]
-CORS_ALLOW_CREDENTIALS = True
 
-# Si usas CSRF, agrega:
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-]
 ROOT_URLCONF = 'UniRide.urls'
 
 TEMPLATES = [
@@ -199,7 +185,5 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
     'secure': True,
 }
-
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 DEFAULT_PROFILE_IMAGE = "https://res.cloudinary.com/dzgcubnp2/image/upload/v1765315248/placeholder-user_h1zyal.png"
