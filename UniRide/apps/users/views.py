@@ -317,7 +317,7 @@ class PreRegisterAdminView(APIView):
         # CORREO HTML CON LOGO
         # ===========================
 
-        confirmation_url = f"https://app.unirideweb.online/api/users/confirm-admin/"
+        confirmation_url = f"https://app.unirideweb.online/confirm-admin/"
 
         logo_path = Path(settings.BASE_DIR) / "email_assets" / "logo-uniride2.png"
         
