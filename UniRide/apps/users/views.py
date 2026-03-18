@@ -1170,13 +1170,12 @@ class AdminUserListView(ListAPIView):
 
         queryset = User.objects.filter(
             is_active=True,
-            is_staff=False  # excluye admins
+            is_staff=False
         )
 
         if search:
             queryset = queryset.filter(
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search) |
+                Q(name__icontains=search) |   # 👈 CAMBIO CLAVE
                 Q(email__icontains=search)
             )
 
