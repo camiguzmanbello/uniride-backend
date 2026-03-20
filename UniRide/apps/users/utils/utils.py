@@ -129,7 +129,7 @@ def send_code_email(subject: str, message: str, finalmessage: str, email: str, c
     <div class="container">
         <!-- LOGO -->
         <div class="logo">
-            <img src="cid:logo" alt="UniRide Logo">
+            <img src="cid:logo" alt="UniRide Logo" style="width:160px;max-width:160px;height:auto;display:block;margin:0 auto;opacity:0.98;">
         </div>
 
         <p>{message}</p>
