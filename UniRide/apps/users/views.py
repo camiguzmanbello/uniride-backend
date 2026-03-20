@@ -317,7 +317,7 @@ class PreRegisterAdminView(APIView):
         # CORREO HTML CON LOGO
         # ===========================
 
-        confirmation_url = f"http://localhost:5173/confirm-admin/"
+        confirmation_url = f"https://app.unirideweb.online/confirm-admin?code={code}&email={email}"
 
         logo_path = Path(settings.BASE_DIR) / "email_assets" / "logo-uniride2.png"
         
@@ -476,15 +476,37 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            response = Response({"message": "Logout exitoso"},
-                                status=status.HTTP_200_OK)
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
+            response = Response(
+                {"message": "Logout exitoso"},
+                status=status.HTTP_200_OK
+            )
+
+            response.set_cookie(
+                key="access_token",
+                value="",
+                httponly=True,
+                secure=True,
+                samesite="None",
+                domain=".unirideweb.online",
+                max_age=0
+            )
+
+            response.set_cookie(
+                key="refresh_token",
+                value="",
+                httponly=True,
+                secure=True,
+                samesite="None",
+                domain=".unirideweb.online",
+                max_age=0
+            )
+
             return response
+
         except Exception as e:
             logger.error(f"Error durante logout: {str(e)}")
             return Response(
-                {"error": "Ocurrió un error durante el logout. Inténtalo más tarde."},
+                {"error": "Ocurrió un error durante el logout."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -1146,13 +1168,12 @@ class AdminUserListView(ListAPIView):
 
         queryset = User.objects.filter(
             is_active=True,
-            is_staff=False  # excluye admins
+            is_staff=False
         )
 
         if search:
             queryset = queryset.filter(
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search) |
+                Q(name__icontains=search) |   # 👈 CAMBIO CLAVE
                 Q(email__icontains=search)
             )
 

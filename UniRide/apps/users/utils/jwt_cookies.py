@@ -17,6 +17,7 @@ def generar_respuesta_con_tokens(user, message="Operación exitosa"):
         httponly=True,
         secure=True,
         samesite="None",
+        domain=".unirideweb.online",
         max_age=60 * 15  # 15 minutos
     )
     response.set_cookie(
@@ -25,6 +26,7 @@ def generar_respuesta_con_tokens(user, message="Operación exitosa"):
         httponly=True,
         secure=True,
         samesite="None",
+        domain=".unirideweb.online",
         max_age=60 * 60 * 24 * 7  # 7 días
     )
 
@@ -37,7 +39,8 @@ def set_tokens_en_response(response: Response, access_token: str, refresh_token:
         httponly=True,
         secure=True,
         samesite="None",
-        max_age=60 * 15
+        max_age=60 * 15,
+        domain=".unirideweb.online"
     )
     response.set_cookie(
         key="refresh_token",
@@ -45,6 +48,7 @@ def set_tokens_en_response(response: Response, access_token: str, refresh_token:
         httponly=True,
         secure=True,
         samesite="None",
-        max_age=60 * 60 * 24 * 7
+        max_age=60 * 60 * 24 * 7,
+        domain=".unirideweb.online"
     )
     return response
