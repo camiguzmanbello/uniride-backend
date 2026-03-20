@@ -598,13 +598,13 @@ class RegisterView(APIView):
                     f'Estás a punto de registrarte en UniRide, '
                     f'tu código de verificación es:<br>'
                 ),
-                code=code,
                 finalmessage=(
                     f'Este código expirará en 10 minutos.<br><br>'
                     f'Si no solicitaste este registro, ignora este mensaje.<br><br>'
                     f'Gracias, el equipo de UniRide.'
                 ),
-                email=email
+                email=email,
+                code=code
             )
 
             return Response(
@@ -970,15 +970,14 @@ class PasswordResetRequestView(APIView):
                 f'Solicitaste restablecer tu contraseña.<br>'
                 f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
             ),
-            code=(
-                f'<a href="{reset_link}">Restablecer contraseña</a>'
-            ),
             finalmessage=(
                 f'Este enlace expirará en 10 minutos.<br>'
                 f'Si no solicitaste este cambio, ignora este mensaje.<br>'
                 f'Gracias, el equipo de UniRide.'
             ),
-            email=user.email
+            email=user.email,
+            link_url=reset_link,
+            link_text="Restablecer contraseña"
         )
 
         return Response({"message": "Se te ha enviado un codigo de recuperacion al correo."}, status=status.HTTP_200_OK)
@@ -1075,14 +1074,14 @@ class ResendNewVerificationCodeView(APIView):
                 f'Tu código de verificación ha sido regenerado, '
                 f'el nuevo código es:<br>'
             ),
-            code=new_code,
             finalmessage=(
                 f'Utiliza este código para completar tu registro. '
                 f'Este código expirará en 10 minutos.<br><br>'
                 f'Si no solicitaste este cambio, ignora este mensaje.<br><br>'
                 f'Gracias, el equipo de UniRide.'
             ),
-            email=pending.email
+            email=pending.email,
+            code=new_code
         )
 
         return Response({"message": "Se ha generado y enviado un nuevo código de verificación."}, status=status.HTTP_200_OK)
@@ -1109,7 +1108,7 @@ class ResendPasswordResetTokenView(APIView):
 
         # Generar un nuevo token de restablecimiento
         token = generate_reset_token(email)
-        reset_link = f"http://localhost:3000/reset-password?token={token}"
+        reset_link = f"https://app.unirideweb.online/reset-password?token={token}"
 
         # Enviar correo
         send_code_email(
@@ -1119,16 +1118,15 @@ class ResendPasswordResetTokenView(APIView):
                 f'Tu link de recuperación de contraseña ha sido regenerado.<br>'
                 f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
             ),
-            code=(
-                f'<a href="{reset_link}">Restablecer contraseña</a>'
-            ),
             finalmessage=(
                 f'Este enlace expirará en 10 minutos.<br>'
                 f'Si no solicitaste este cambio, ignora este mensaje.<br>'
                 f'Gracias,<br>'
                 f'El equipo de UniRide.'
             ),
-            email=user.email
+            email=user.email,
+            link_url=reset_link,
+            link_text="Restablecer contraseña"
         )
 
         return Response({"message": "Se ha enviado un nuevo enlace para restablecer la contraseña."}, status=status.HTTP_200_OK)
