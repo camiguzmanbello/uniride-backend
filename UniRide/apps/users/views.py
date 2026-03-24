@@ -532,9 +532,13 @@ class RoleView(APIView):
 
 
 class UserView(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    def get_permissions(self):
+        if self.action in ['retrieve', 'list']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminUser()]
 
 
 
