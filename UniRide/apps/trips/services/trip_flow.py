@@ -207,8 +207,8 @@ def accept_passenger(trip_passenger_id: int, actor_user: User):
         if trip.driver_id != actor_user:
             raise ValidationError("Solo el conductor puede aceptar pasajeros.")
             
-        if tp.status_id.name != 'Pendiente':
-            if tp.status_id.name == 'Aceptado':
+        if tp.status_id.name.lower() != 'pendiente':
+            if tp.status_id.name.lower() == 'aceptado':
                 return tp # Idempotencia: si ya está aceptado, retornar sin error
             raise ValidationError(f"No se puede aceptar un pasajero en estado {tp.status_id.name}.")
             
@@ -218,7 +218,10 @@ def accept_passenger(trip_passenger_id: int, actor_user: User):
             raise ConflictError("Cupos insuficientes.")
             
         # Actualizar Estado a Aceptado
-        accepted_status = TripPassengerStatus.objects.get(name='Aceptado')
+        try:
+            accepted_status = TripPassengerStatus.objects.get(name__iexact='aceptado')
+        except TripPassengerStatus.DoesNotExist:
+            raise ValidationError("Estado 'Aceptado' no encontrado en el sistema.")
         tp.status_id = accepted_status
         tp.save()
         
@@ -239,7 +242,7 @@ def accept_passenger(trip_passenger_id: int, actor_user: User):
         if publication.available_seats == 0:
             # Actualizar estado del viaje a 'En curso'
             try:
-                trip_status_in_progress = TripStatus.objects.get(name='En curso')
+                trip_status_in_progress = TripStatus.objects.get(name__iexact='en curso')
                 trip.status_id = trip_status_in_progress
                 trip.save()
             except TripStatus.DoesNotExist:
@@ -247,14 +250,17 @@ def accept_passenger(trip_passenger_id: int, actor_user: User):
                 pass
 
             # Rechazar a otros pendientes
-            rejected_status = TripPassengerStatus.objects.get(name='Rechazado')
-            # Buscar otros pasajeros pendientes en este mismo viaje
-            others = TripPassenger.objects.filter(trip_id=trip, status_id__name='Pendiente').exclude(id=tp.id)
-            
-            for other in others:
-                other.status_id = rejected_status
-                other.save() 
-                # Nota: El cierre del chat para rechazados se maneja vía Signals (apps/trips/signals.py)
+            try:
+                rejected_status = TripPassengerStatus.objects.get(name__iexact='rechazado')
+                # Buscar otros pasajeros pendientes en este mismo viaje
+                others = TripPassenger.objects.filter(trip_id=trip, status_id__name__iexact='pendiente').exclude(id=tp.id)
+                
+                for other in others:
+                    other.status_id = rejected_status
+                    other.save() 
+                    # Nota: El cierre del chat para rechazados se maneja vía Signals (apps/trips/signals.py)
+            except TripPassengerStatus.DoesNotExist:
+                pass
             
         return tp
 
@@ -268,12 +274,27 @@ def close_pending_for_publication(publication_id: int):
             publication = Publication.objects.get(pk=publication_id)
             if hasattr(publication, 'trip'):
                 trip = publication.trip
-                canceled_status = TripPassengerStatus.objects.get(name='Cancelado') # O usar Rechazado según regla de negocio
+                try:
+                    canceled_status = TripPassengerStatus.objects.get(name__iexact='cancelado') # O usar Rechazado según regla de negocio
+                except TripPassengerStatus.DoesNotExist:
+                    # En caso de que no haya estado "Cancelado", usamos "Rechazado"
+                    canceled_status = TripPassengerStatus.objects.get(name__iexact='rechazado')
                 
-                passengers = TripPassenger.objects.filter(trip_id=trip, status_id__name='Pendiente')
-                for p in passengers:
-                    p.status_id = canceled_status
-                    p.save()
+                # Rechazamos todos los pendientes
+                pending_passengers = TripPassenger.objects.filter(
+                    trip_id=trip, 
+                    status_id__name__iexact='pendiente'
+                )
+                
+                for pp in pending_passengers:
+                    pp.status_id = canceled_status
+                    pp.save()
                     # El cierre del chat se maneja automáticamente por Signals
         except Publication.DoesNotExist:
             pass
+
+
+
+
+
+
