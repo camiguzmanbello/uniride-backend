@@ -498,9 +498,9 @@ class TripViewSet(ModelViewSet):
             )
             
         try:
-            finalized_status = TripStatus.objects.get(name='Finalizado')
+            finalized_status = TripStatus.objects.get(name__iexact='finalizado')
             pending_finalized_status, _ = TripStatus.objects.get_or_create(name='Pendiente finalizado')
-            passenger_finalized_status = TripPassengerStatus.objects.get(name='Finalizado')
+            passenger_finalized_status = TripPassengerStatus.objects.get(name__iexact='finalizado')
         except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist):
             return Response(
                 {"detail": "Error de configuración: Estado 'Finalizado' no encontrado."}, 
@@ -511,7 +511,7 @@ class TripViewSet(ModelViewSet):
             trip.driver_finalized = True
             trip.save()
         else:
-            if passenger_record.status_id.name not in ['Aceptado', 'Finalizado']:
+            if passenger_record.status_id.name.lower() not in ['aceptado', 'finalizado']:
                  return Response(
                     {"detail": "Solo pasajeros aceptados pueden finalizar el viaje."}, 
                     status=status.HTTP_400_BAD_REQUEST
@@ -523,8 +523,8 @@ class TripViewSet(ModelViewSet):
             
         trip.refresh_from_db()
         
-        all_passengers_done = not trip.passengers.filter(status_id__name='Aceptado').exists()
-        any_passenger_finalized = trip.passengers.filter(status_id__name='Finalizado').exists()
+        all_passengers_done = not trip.passengers.filter(status_id__name__iexact='aceptado').exists()
+        any_passenger_finalized = trip.passengers.filter(status_id__name__iexact='finalizado').exists()
         
         if trip.driver_finalized and all_passengers_done:
             trip.status_id = finalized_status
@@ -570,13 +570,13 @@ class TripViewSet(ModelViewSet):
             pending_members.append(driver_data)
 
         passengers_qs = trip.passengers.filter(
-            status_id__name__in=['Aceptado', 'Finalizado']
+            status_id__name__iregex=r'^(aceptado|finalizado)$'
         ).select_related('passenger_id', 'status_id')
 
         for tp in passengers_qs:
             data = SimpleUserSerializer(tp.passenger_id).data
             data['role'] = 'Pasajero'
-            if tp.status_id.name == 'Finalizado':
+            if tp.status_id.name.lower() == 'finalizado':
                 finalized_members.append(data)
             else:
                 pending_members.append(data)
@@ -602,7 +602,7 @@ class TripViewSet(ModelViewSet):
             data['role'] = 'Conductor'
             members.append(data)
         passengers_qs = trip.passengers.filter(
-            status_id__name__in=['Aceptado', 'Finalizado']
+            status_id__name__iregex=r'^(aceptado|finalizado)$'
         ).select_related('passenger_id', 'status_id')
         for tp in passengers_qs:
             if tp.passenger_id == user:
