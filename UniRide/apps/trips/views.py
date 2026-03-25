@@ -484,7 +484,11 @@ class TripViewSet(ModelViewSet):
         El viaje solo cambia a estado 'Finalizado' globalmente cuando TODOS los participantes
         (conductor y pasajeros aceptados) lo han marcado como finalizado.
         """
-        trip = self.get_object()
+        try:
+            trip = self.get_object()
+        except Exception as e:
+            return Response({"detail": f"Error al obtener el viaje: {str(e)}"}, status=status.HTTP_404_NOT_FOUND)
+            
         user = request.user
         
         # Verificar si el usuario es participante
@@ -499,62 +503,74 @@ class TripViewSet(ModelViewSet):
             
         try:
             finalized_status = TripStatus.objects.get(name__iexact='finalizado')
-            pending_finalized_status, _ = TripStatus.objects.get_or_create(name='Pendiente finalizado')
+            pending_finalized_status, _ = TripStatus.objects.get_or_create(name__iexact='pendiente finalizado', defaults={'name': 'Pendiente finalizado'})
             passenger_finalized_status = TripPassengerStatus.objects.get(name__iexact='finalizado')
-        except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist):
+        except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist) as e:
             return Response(
-                {"detail": "Error de configuración: Estado 'Finalizado' no encontrado."}, 
+                {"detail": f"Error de configuración de estados: {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        if is_driver:
-            trip.driver_finalized = True
-            trip.save()
-        else:
-            if passenger_record.status_id.name.lower() not in ['aceptado', 'finalizado']:
-                 return Response(
-                    {"detail": "Solo pasajeros aceptados pueden finalizar el viaje."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        try:
+            if is_driver:
+                trip.driver_finalized = True
+                trip.save()
+            else:
+                if passenger_record.status_id.name.lower() not in ['aceptado', 'finalizado']:
+                     return Response(
+                        {"detail": "Solo pasajeros aceptados pueden finalizar el viaje."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                passenger_record.status_id = passenger_finalized_status
+                passenger_record.finalized_at = timezone.now()
+                passenger_record.save()
+                
+            trip.refresh_from_db()
             
-            passenger_record.status_id = passenger_finalized_status
-            passenger_record.finalized_at = timezone.now()
-            passenger_record.save()
+            all_passengers_done = not trip.passengers.filter(status_id__name__iexact='aceptado').exists()
+            any_passenger_finalized = trip.passengers.filter(status_id__name__iexact='finalizado').exists()
             
-        trip.refresh_from_db()
-        
-        all_passengers_done = not trip.passengers.filter(status_id__name__iexact='aceptado').exists()
-        any_passenger_finalized = trip.passengers.filter(status_id__name__iexact='finalizado').exists()
-        
-        if trip.driver_finalized and all_passengers_done:
-            trip.status_id = finalized_status
-            trip.finalized_at = timezone.now()
-            trip.save()
-            
-            # Desactivar publicación asociada
-            trip.publication_id.is_active = False
-            trip.publication_id.save()
-            
-            # Cerrar chats asociados
-            Chat.objects.filter(publication=trip.publication_id, is_active=True).update(
-                is_active=False,
-                closed_at=timezone.now()
-            )
-            
+            if trip.driver_finalized and all_passengers_done:
+                trip.status_id = finalized_status
+                trip.finalized_at = timezone.now()
+                trip.save()
+                
+                # Desactivar publicación asociada
+                trip.publication_id.is_active = False
+                trip.publication_id.save()
+                
+                # Cerrar chats asociados
+                try:
+                    from apps.chat.models import Chat
+                    Chat.objects.filter(publication=trip.publication_id, is_active=True).update(
+                        is_active=False,
+                        closed_at=timezone.now()
+                    )
+                except Exception as e:
+                    print(f"Error al cerrar chats: {e}")
+                
+                return Response({
+                    "detail": "Has marcado el viaje como finalizado. El viaje ha concluido para todos.",
+                    "trip_status": "Finalizado"
+                })
+                
+            if trip.driver_finalized or any_passenger_finalized:
+                if trip.status_id != pending_finalized_status:
+                    trip.status_id = pending_finalized_status
+                    trip.save(update_fields=['status_id'])
+                
             return Response({
-                "detail": "Has marcado el viaje como finalizado. El viaje ha concluido para todos.",
-                "trip_status": "Finalizado"
+                "detail": "Has marcado el viaje como finalizado. Esperando a los demás participantes.",
+                "trip_status": trip.status_id.name
             })
-            
-        if trip.driver_finalized or any_passenger_finalized:
-            if trip.status_id != pending_finalized_status:
-                trip.status_id = pending_finalized_status
-                trip.save(update_fields=['status_id'])
-            
-        return Response({
-            "detail": "Has marcado el viaje como finalizado. Esperando a los demás participantes.",
-            "trip_status": trip.status_id.name
-        })
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {"detail": f"Error interno al finalizar el viaje: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def finalization_status(self, request, pk=None):
