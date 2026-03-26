@@ -37,9 +37,8 @@ class AdminDashboardView(APIView):
         today = timezone.localdate()
         start_date = today - timedelta(days=6)
 
-
         # =========================
-        # Usuarios
+        # 👤 Usuarios
         # =========================
         active_users = User.objects.filter(
             role_id=2,
@@ -53,24 +52,31 @@ class AdminDashboardView(APIView):
         ).count()
 
         # =========================
-        # Viajes activos
+        # 🚗 Viajes por estado
         # =========================
-        active_trips = Trip.objects.filter(
-            publication_id__is_active=True,
-            finalized_at__isnull=True
-        ).exclude(
-            status_id__name__in=["Cancelado", "Finalizado"]
+        in_progress_trips = Trip.objects.filter(
+            status_id__name="En curso"
+        ).count()
+
+        cancelled_trips = Trip.objects.filter(
+            status_id__name="Cancelado",
+            updated_at__date__range=(start_date, today)  # ⚠️ aproximación
+        ).count()
+
+        finalized_trips = Trip.objects.filter(
+            status_id__name="Finalizado",
+            finalized_at__date__range=(start_date, today)
         ).count()
 
         # =========================
-        # Quejas pendientes
+        # ⚠️ Quejas pendientes
         # =========================
         pending_complaints = Complaint.objects.filter(
             status_id__name="Pendiente"
         ).count()
 
         # =========================
-        # Viajes finalizados últimos 7 días
+        # 📊 Viajes finalizados últimos 7 días
         # =========================
         days = [start_date + timedelta(days=i) for i in range(7)]
         trip_map = {day: 0 for day in days}
@@ -85,27 +91,11 @@ class AdminDashboardView(APIView):
             .annotate(total=Count("id"))
         )
 
-
         for item in trips_week:
             trip_map[item["day"]] = item["total"]
 
         trips_per_day_labels = [day.strftime("%Y-%m-%d") for day in days]
         trips_per_day_values = [trip_map[day] for day in days]
-
-        # =========================
-        #  Viajes cancelados vs finalizados
-        # =========================
-        cancelled_trips = Trip.objects.filter(
-            status_id__name="Cancelado",
-            publication_id__departure_datetime__date__range=(start_date, today)
-        ).count()
-
-        finalized_trips = Trip.objects.filter(
-            status_id__name="Finalizado",
-            publication_id__departure_datetime__date__range=(start_date, today)
-        ).count()
-
-
 
         # =========================
         # 📦 Response final
@@ -114,7 +104,7 @@ class AdminDashboardView(APIView):
             # KPIs
             "active_users": active_users,
             "suspended_users": suspended_users,
-            "active_trips": active_trips,
+            "active_trips": in_progress_trips,
             "pending_complaints": pending_complaints,
 
             # Charts
@@ -124,8 +114,8 @@ class AdminDashboardView(APIView):
                     "values": trips_per_day_values,
                 },
                 "trip_status": {
-                    "labels": ["Cancelados", "Finalizados"],
-                    "values": [cancelled_trips, finalized_trips],
+                    "labels": ["En curso", "Cancelados", "Finalizados"],
+                    "values": [in_progress_trips, cancelled_trips, finalized_trips],
                 },
                 "users_status": {
                     "labels": ["Activos", "Suspendidos"],
@@ -135,7 +125,6 @@ class AdminDashboardView(APIView):
         }
 
         return Response(AdminDashboardSerializer(data).data)
-    
 
 # ------------------------
 # Helper PDF generator
