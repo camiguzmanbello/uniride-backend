@@ -176,7 +176,7 @@ EMAIL_HOST_PASSWORD = env_config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env_config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 FRONTEND_URL = env_config('FRONTEND_URL', default='https://app.unirideweb.online')
-PASSWORD_RESET_PATH = env_config('PASSWORD_RESET_PATH', default='/reset-password')
+PASSWORD_RESET_PATH = env_config('PASSWORD_RESET_PATH', default='/confirm-reset-password')
 
 # Usar Cloudinary para archivos de media
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
