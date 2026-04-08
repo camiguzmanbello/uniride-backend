@@ -60,13 +60,12 @@ class CambiarPasswordSerializer(serializers.Serializer):
     confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-
+        """Validar que las contraseñas sean seguras y coincidan."""
         validar_password_y_confirmacion(
-            password1=data["new_password"],
-            password2=data["confirm_password"],
+            password1=data.get("new_password"),
+            password2=data.get("confirm_password"),
             context_user=self.context['request'].user
         )
-        
         return data
 
 
@@ -173,10 +172,12 @@ class PendingUserSerializer(serializers.ModelSerializer):
         return validate_phone_number(value)
 
     def validate(self, data):
-        """Validar que las contraseñas coincidan."""
-        if data.get('password') != data.get('confirm_password'):
-            raise serializers.ValidationError(
-                {"confirm_password": "Las contraseñas no coinciden."})
+        """Validar que las contraseñas sean seguras y coincidan."""
+        validar_password_y_confirmacion(
+            password1=data.get("password"),
+            password2=data.get("confirm_password"),
+            context_user=None
+        )
         return data
 
     def create(self, validated_data):
@@ -269,10 +270,12 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        """Validar que las contraseñas coincidan."""
-        if data.get('new_password') != data.get('confirm_password'):
-            raise serializers.ValidationError(
-                {"confirm_password": "Las contraseñas no coinciden."})
+        """Validar que las contraseñas sean seguras y coincidan."""
+        validar_password_y_confirmacion(
+            password1=data.get("new_password"),
+            password2=data.get("confirm_password"),
+            context_user=None
+        )
         return data
 
 

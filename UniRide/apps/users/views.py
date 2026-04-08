@@ -549,7 +549,6 @@ class RegisterView(APIView):
 
     def _validate_user_existence(self, request, email, phone):
         status_err = status.HTTP_409_CONFLICT
-        status_ok = status.HTTP_200_OK
 
         existing_user = User.objects.filter(email__iexact=email).first()
 
@@ -569,10 +568,12 @@ class RegisterView(APIView):
         if User.objects.filter(phone=phone).exists():
             return Response({"error": "Este número de teléfono ya está registrado."}, status=status_err)
 
-        if PendingUser.objects.filter(email__iexact=email).exists():
-            return Response({"error": "Ya hay un proceso de verificación en curso para este correo."}, status=status_err)
-        if PendingUser.objects.filter(phone=phone).exists():
-            return Response({"error": "Ya hay un proceso de verificación en curso para este número."}, status=status_err)
+        # Validar si el teléfono está en uso por OTRO proceso de registro (email diferente)
+        other_pending = PendingUser.objects.filter(phone=phone).exclude(email__iexact=email).first()
+        if other_pending:
+            # Solo bloqueamos si el proceso del otro usuario aún es válido (no expiró)
+            if other_pending.expires_at > timezone.now():
+                return Response({"error": "Este número de teléfono ya está en uso en otro proceso de verificación activo."}, status=status_err)
 
         return None
 
@@ -580,7 +581,7 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = PendingUserSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            email = serializer.validated_data['email'].lower()
             phone = serializer.validated_data['phone']
 
             # Validación personalizada
@@ -594,8 +595,7 @@ class RegisterView(APIView):
             hashed_password = make_password(
                 serializer.validated_data['password'])
 
-            # Crear usuario temporal
-            # Obtener el rol 'Usuario' por defecto, lanzando excepción clara si no existe
+            # Obtener el rol 'Usuario' por defecto
             try:
                 default_role = Role.objects.get(name='Usuario')
             except Role.DoesNotExist:
@@ -604,17 +604,34 @@ class RegisterView(APIView):
                     {"error": "Error de configuración: rol de usuario no disponible"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+
+            # Buscar si ya existe un registro pendiente para este correo
+            existing_pending = PendingUser.objects.filter(email__iexact=email).first()
             
-            pending = PendingUser.objects.create(
-                name=serializer.validated_data['name'],
-                email=email,
-                phone=phone,
-                password=hashed_password,
-                role_id=default_role,
-                profile_image=request.FILES.get('profile_image'),
-                code=code,
-                expires_at=expiration
-            )
+            if existing_pending:
+                # Actualizar el registro existente
+                existing_pending.name = serializer.validated_data['name']
+                existing_pending.phone = phone
+                existing_pending.password = hashed_password
+                existing_pending.role_id = default_role
+                if request.FILES.get('profile_image'):
+                    existing_pending.profile_image = request.FILES.get('profile_image')
+                existing_pending.code = code
+                existing_pending.expires_at = expiration
+                existing_pending.save()
+                pending = existing_pending
+            else:
+                # Crear nuevo usuario temporal
+                pending = PendingUser.objects.create(
+                    name=serializer.validated_data['name'],
+                    email=email,
+                    phone=phone,
+                    password=hashed_password,
+                    role_id=default_role,
+                    profile_image=request.FILES.get('profile_image'),
+                    code=code,
+                    expires_at=expiration
+                )
 
             # Enviar correo
             send_code_email(
@@ -630,11 +647,13 @@ class RegisterView(APIView):
                     f'Gracias, el equipo de UniRide.'
                 ),
                 email=email,
-                code=code
+                code=code,
+                link_url="https://app.unirideweb.online/verify-code",
+                link_text="Verificar mi cuenta"
             )
 
             return Response(
-                {"message": "Se te ha enviado un codigo de verificación, Verifica tu correo.", "email": email},
+                {"message": "Se te ha enviado un código de verificación, verifica tu correo.", "email": email},
                 status=status.HTTP_200_OK
             )
 
@@ -1107,7 +1126,9 @@ class ResendNewVerificationCodeView(APIView):
                 f'Gracias, el equipo de UniRide.'
             ),
             email=pending.email,
-            code=new_code
+            code=new_code,
+            link_url="https://app.unirideweb.online/verify-code",
+            link_text="Verificar mi cuenta"
         )
 
         return Response({"message": "Se ha generado y enviado un nuevo código de verificación."}, status=status.HTTP_200_OK)

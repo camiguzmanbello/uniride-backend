@@ -18,8 +18,19 @@ def generate_verification_code():
 def send_code_email(subject: str, message: str, finalmessage: str, email: str, code: str = None, link_url: str = None, link_text: str = None) -> None:
     from_email = settings.DEFAULT_FROM_EMAIL
     
+    middle_html = ""
+    middle_text = ""
+
+    if code:
+        middle_html += f"""
+        <div class="code-box">
+            {code}
+        </div>
+        """
+        middle_text += f"Código: {code}\n"
+
     if link_url:
-        middle_html = f"""
+        middle_html += f"""
         <p class="center">
             <a href="{link_url}" class="button">{link_text or 'Click Aquí'}</a>
         </p>
@@ -30,17 +41,7 @@ def send_code_email(subject: str, message: str, finalmessage: str, email: str, c
             </a>
         </p>
         """
-        middle_text = f"{link_text or 'Enlace'}: {link_url}"
-    elif code:
-        middle_html = f"""
-        <div class="code-box">
-            {code}
-        </div>
-        """
-        middle_text = f"Código: {code}"
-    else:
-        middle_html = ""
-        middle_text = ""
+        middle_text += f"{link_text or 'Enlace'}: {link_url}\n"
 
     html_content = f"""<!DOCTYPE html>
 <html lang="es">
