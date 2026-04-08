@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework import status, permissions, viewsets
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.conf import settings
+from urllib.parse import urlencode, urljoin
 from drf_yasg.utils import swagger_auto_schema
 from django.contrib.auth import get_user_model
 import logging
@@ -39,6 +40,15 @@ from .utils.cloudinary_utils import delete_cloudinary_image, extract_public_id_f
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+def _build_frontend_url(path: str, query_params: dict | None = None) -> str:
+    base = getattr(settings, "FRONTEND_URL", "https://app.unirideweb.online")
+    if not base.endswith("/"):
+        base += "/"
+    url = urljoin(base, path.lstrip("/"))
+    if query_params:
+        return f"{url}?{urlencode(query_params)}"
+    return url
 
 
 class LoginView(APIView):
@@ -1005,7 +1015,7 @@ class PasswordResetRequestView(APIView):
             return Response({"error": "No existe un usuario con ese correo."}, status=status.HTTP_404_NOT_FOUND)
 
         token = generate_reset_token(email)
-        reset_link = f"http://localhost:5173/confirm-reset-password?token={token}"
+        reset_link = _build_frontend_url(getattr(settings, "PASSWORD_RESET_PATH", "/reset-password"), {"token": token})
 
         # Enviar correo con el enlace de restablecimiento
         send_code_email(
@@ -1155,7 +1165,7 @@ class ResendPasswordResetTokenView(APIView):
 
         # Generar un nuevo token de restablecimiento
         token = generate_reset_token(email)
-        reset_link = f"https://app.unirideweb.online/reset-password?token={token}"
+        reset_link = _build_frontend_url(getattr(settings, "PASSWORD_RESET_PATH", "/reset-password"), {"token": token})
 
         # Enviar correo
         send_code_email(
