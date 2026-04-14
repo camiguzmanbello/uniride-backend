@@ -36,6 +36,7 @@ from django.shortcuts import get_object_or_404
 from apps.complaints.models import Complaint
 from apps.users.utils.suspension_service import check_and_handle_suspension
 from .utils.cloudinary_utils import delete_cloudinary_image, extract_public_id_from_url
+from apps.users.utils.login_payload_crypto import LoginPayloadDecryptionError, decrypt_login_payload, get_login_public_key_pem
 
 
 User = get_user_model()
@@ -56,7 +57,20 @@ class LoginView(APIView):
 
     @swagger_auto_schema(request_body=LoginSerializer)
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        data = request.data
+        try:
+            data = data.copy()
+        except Exception:
+            pass
+
+        if isinstance(data, dict) and data.get("payload") is not None:
+            try:
+                decrypted = decrypt_login_payload(data.get("payload"))
+            except LoginPayloadDecryptionError:
+                return Response({"error": "Payload de login inválido"}, status=status.HTTP_400_BAD_REQUEST)
+            data = decrypted
+
+        serializer = LoginSerializer(data=data)
 
         try:
             serializer.is_valid(raise_exception=True)
@@ -125,6 +139,22 @@ class LoginView(APIView):
                 {"error": "Error interno del servidor. Inténtalo más tarde."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class LoginPublicKeyView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        public_key_pem = get_login_public_key_pem()
+        if not public_key_pem:
+            return Response({"error": "Llave pública no configurada"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {
+                "v": 1,
+                "alg": "RSA-OAEP-256+A256GCM",
+                "public_key_pem": public_key_pem,
+            }
+        )
 
 
 class UserMeView(APIView):
