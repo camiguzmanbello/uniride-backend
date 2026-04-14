@@ -66,7 +66,7 @@ class LoginView(APIView):
         if isinstance(data, dict) and data.get("payload") is not None:
             try:
                 decrypted = decrypt_login_payload(data.get("payload"))
-            except LoginPayloadDecryptionError:
+            except Exception:
                 return Response({"error": "Payload de login inválido"}, status=status.HTTP_400_BAD_REQUEST)
             data = decrypted
 

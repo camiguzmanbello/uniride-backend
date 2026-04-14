@@ -27,7 +27,10 @@ def _get_login_private_key():
     pem_bytes = _normalize_pem(pem)
     if not pem_bytes:
         return None
-    return load_pem_private_key(pem_bytes, password=None)
+    try:
+        return load_pem_private_key(pem_bytes, password=None)
+    except Exception:
+        return None
 
 
 def get_login_public_key_pem() -> str:
