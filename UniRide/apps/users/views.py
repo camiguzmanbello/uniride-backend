@@ -67,6 +67,11 @@ class LoginView(APIView):
             try:
                 decrypted = decrypt_login_payload(data.get("payload"))
             except Exception:
+                logger.warning(
+                    "Login payload inválido (content_type=%s, payload_type=%s)",
+                    request.META.get("CONTENT_TYPE"),
+                    type(data.get("payload")).__name__,
+                )
                 return Response({"error": "Payload de login inválido"}, status=status.HTTP_400_BAD_REQUEST)
             data = decrypted
 

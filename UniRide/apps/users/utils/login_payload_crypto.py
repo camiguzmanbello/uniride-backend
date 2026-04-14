@@ -77,6 +77,12 @@ def _b64decode(value: Any) -> bytes:
 
 
 def decrypt_login_payload(payload: Any) -> dict[str, str]:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception as e:
+            raise LoginPayloadDecryptionError() from e
+
     if not isinstance(payload, dict):
         raise LoginPayloadDecryptionError()
 
