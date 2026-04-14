@@ -180,6 +180,7 @@ PASSWORD_RESET_PATH = env_config('PASSWORD_RESET_PATH', default='/confirm-reset-
 
 LOGIN_PAYLOAD_PRIVATE_KEY_PEM = env_config('LOGIN_PAYLOAD_PRIVATE_KEY_PEM', default='')
 LOGIN_PAYLOAD_PUBLIC_KEY_PEM = env_config('LOGIN_PAYLOAD_PUBLIC_KEY_PEM', default='')
+LOGIN_PAYLOAD_PRIVATE_KEY_PATH = env_config('LOGIN_PAYLOAD_PRIVATE_KEY_PATH', default='')
 
 # Usar Cloudinary para archivos de media
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

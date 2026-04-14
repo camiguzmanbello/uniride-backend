@@ -11,6 +11,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path("Login/", LoginView.as_view(), name="login"),
     path("login-public-key/", LoginPublicKeyView.as_view(), name="login_public_key"),
+    path("login-key-health/", LoginKeyHealthView.as_view(), name="login_key_health"),
     path("Refresh-token/", RefreshTokenView.as_view(), name="refresh_token"),
     path('me/', UserMeView.as_view(), name='user-me'),
     path("Admin/perfil/", PerfilView.as_view(), name="perfil"),

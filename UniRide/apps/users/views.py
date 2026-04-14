@@ -36,7 +36,7 @@ from django.shortcuts import get_object_or_404
 from apps.complaints.models import Complaint
 from apps.users.utils.suspension_service import check_and_handle_suspension
 from .utils.cloudinary_utils import delete_cloudinary_image, extract_public_id_from_url
-from apps.users.utils.login_payload_crypto import LoginPayloadDecryptionError, decrypt_login_payload, get_login_public_key_kid, get_login_public_key_pem
+from apps.users.utils.login_payload_crypto import LoginPayloadDecryptionError, decrypt_login_payload, get_login_key_status, get_login_public_key_kid, get_login_public_key_pem
 
 
 User = get_user_model()
@@ -155,12 +155,18 @@ class LoginPublicKeyView(APIView):
             return Response({"error": "Llave pública no configurada"}, status=status.HTTP_404_NOT_FOUND)
         return Response(
             {
-                "v": 1,
-                "alg": "RSA-OAEP-256+A256GCM",
-                "kid": get_login_public_key_kid(),
                 "public_key_pem": public_key_pem,
             }
         )
+
+
+class LoginKeyHealthView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        status_data = get_login_key_status()
+        status_data["kid"] = get_login_public_key_kid()
+        return Response(status_data)
 
 
 class UserMeView(APIView):

@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from functools import lru_cache
 from typing import Any
 
@@ -23,10 +24,31 @@ def _normalize_pem(pem: str) -> bytes:
     pem = pem.replace("\\n", "\n")
     return pem.encode("utf-8")
 
+def _read_private_key_pem_from_path() -> str:
+    path = getattr(settings, "LOGIN_PAYLOAD_PRIVATE_KEY_PATH", "")
+    if not isinstance(path, str) or not path:
+        return ""
+    try:
+        with open(path, "rb") as f:
+            return f.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+def _get_private_key_pem_value() -> str:
+    from_path = _read_private_key_pem_from_path()
+    if from_path:
+        return from_path
+
+    pem = getattr(settings, "LOGIN_PAYLOAD_PRIVATE_KEY_PEM", "")
+    if pem:
+        return pem
+
+    return os.environ.get("LOGIN_PAYLOAD_PRIVATE_KEY_PEM", "")
+
 
 @lru_cache(maxsize=2)
 def _get_login_private_key():
-    pem = getattr(settings, "LOGIN_PAYLOAD_PRIVATE_KEY_PEM", "")
+    pem = _get_private_key_pem_value()
     pem_bytes = _normalize_pem(pem)
     if not pem_bytes:
         return None
@@ -47,6 +69,22 @@ def get_login_public_key_pem() -> str:
 
     public_key = private_key.public_key()
     return public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo).decode("utf-8")
+
+
+def get_login_key_status() -> dict[str, Any]:
+    raw = _get_private_key_pem_value()
+    present = bool(raw)
+    if not present:
+        return {"configured": False, "parsed": False, "error": "missing"}
+
+    normalized = _normalize_pem(raw)
+    try:
+        load_pem_private_key(normalized, password=None)
+        parsed = True
+    except Exception:
+        parsed = False
+
+    return {"configured": True, "parsed": parsed, "error": None if parsed else "invalid"}
 
 
 def get_login_public_key_kid() -> str:
