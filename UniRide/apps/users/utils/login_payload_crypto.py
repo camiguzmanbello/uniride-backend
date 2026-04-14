@@ -51,8 +51,15 @@ def _b64decode(value: Any) -> bytes:
         raise LoginPayloadDecryptionError()
     try:
         return base64.b64decode(value, validate=True)
-    except Exception as e:
-        raise LoginPayloadDecryptionError() from e
+    except Exception:
+        try:
+            normalized = value.replace("-", "+").replace("_", "/")
+            padding_len = (-len(normalized)) % 4
+            if padding_len:
+                normalized = normalized + ("=" * padding_len)
+            return base64.b64decode(normalized, validate=False)
+        except Exception as e:
+            raise LoginPayloadDecryptionError() from e
 
 
 def decrypt_login_payload(payload: Any) -> dict[str, str]:
