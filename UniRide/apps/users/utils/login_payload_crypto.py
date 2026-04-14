@@ -17,7 +17,10 @@ class LoginPayloadDecryptionError(Exception):
 def _normalize_pem(pem: str) -> bytes:
     if not pem:
         return b""
-    pem = pem.strip().replace("\\n", "\n")
+    pem = pem.strip()
+    if len(pem) >= 2 and pem[0] == pem[-1] and pem[0] in ("'", '"'):
+        pem = pem[1:-1].strip()
+    pem = pem.replace("\\n", "\n")
     return pem.encode("utf-8")
 
 
@@ -44,6 +47,17 @@ def get_login_public_key_pem() -> str:
 
     public_key = private_key.public_key()
     return public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo).decode("utf-8")
+
+
+def get_login_public_key_kid() -> str:
+    private_key = _get_login_private_key()
+    if private_key is None:
+        return ""
+    public_key = private_key.public_key()
+    der = public_key.public_bytes(encoding=Encoding.DER, format=PublicFormat.SubjectPublicKeyInfo)
+    digest = hashes.Hash(hashes.SHA256())
+    digest.update(der)
+    return base64.urlsafe_b64encode(digest.finalize()).decode("utf-8").rstrip("=")
 
 
 def _b64decode(value: Any) -> bytes:
