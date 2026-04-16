@@ -11,6 +11,12 @@ body {
     color: #333;
 }
 
+/* Accesibilidad sin afectar diseño */
+.visually-hidden {
+    position: absolute;
+    left: -9999px;
+}
+
 .header-table {
     width: 100%;
     border-bottom: 2px solid #1A4D45;
@@ -110,19 +116,33 @@ body {
 
 <body>
 
-<table class="header-table">
-    <tr>
-        <td width="20%" align="center">
-            <img src="reports_assets/uniride_logo.png" class="logo" />
-        </td>
-        <td width="80%">
-            <div class="title">{{ report_title }}</div>
-            <div class="meta">{{ report_subtitle }}</div>
-            <div class="meta">
-                Generado el {{ generated_at }} por {{ generated_by }}
-            </div>
-        </td>
-    </tr>
+<!-- HEADER -->
+<table class="header-table" aria-label="Encabezado del reporte">
+    <caption class="visually-hidden">
+        Encabezado con logo, título y metadatos del reporte
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Logo</th>
+            <th>Información del reporte</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="20%" align="center">
+                <img src="reports_assets/uniride_logo.png"
+                     class="logo"
+                     alt="Logo UniRide" />
+            </td>
+            <td width="80%">
+                <div class="title">{{ report_title }}</div>
+                <div class="meta">{{ report_subtitle }}</div>
+                <div class="meta">
+                    Generado el {{ generated_at }} por {{ generated_by }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 {% if grouped_users %}
@@ -132,43 +152,51 @@ body {
 
         {% for user in users %}
         <div class="user-card">
-            <table class="user-table">
-                <tr>
-                    <td class="user-left">
-                        <div class="user-name">{{ user.name }}</div>
-                        <div class="user-sub">{{ role }}</div>
-                    </td>
-                    <td class="user-right">
-                        <div class="user-meta"><strong>Email:</strong> {{ user.email }}</div>
-                        <div class="user-meta"><strong>Teléfono:</strong> {{ user.phone|default:"—" }}</div>
-                        <div class="user-meta"><strong>Registro:</strong> {{ user.created_at|date:"d/m/Y" }}</div>
+            <table class="user-table" aria-label="Información del usuario">
+                <caption class="visually-hidden">
+                    Datos del usuario {{ user.name }}
+                </caption>
+                <thead class="visually-hidden">
+                    <tr>
+                        <th>Datos básicos</th>
+                        <th>Detalles</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="user-left">
+                            <div class="user-name">{{ user.name }}</div>
+                            <div class="user-sub">{{ role }}</div>
+                        </td>
+                        <td class="user-right">
+                            <div class="user-meta"><strong>Email:</strong> {{ user.email }}</div>
+                            <div class="user-meta"><strong>Teléfono:</strong> {{ user.phone|default:"—" }}</div>
+                            <div class="user-meta"><strong>Registro:</strong> {{ user.created_at|date:"d/m/Y" }}</div>
 
-                        {#  Vehículos solo para usuarios #}
-                        {% if role == "Usuario" and user.vehicles.all|length %}
-                        <div class="user-meta">
-                            <strong>Vehículos:</strong>
-                            {% for v in user.vehicles.all %}
-                                <span class="vehicle-chip">
-                                    {{ v.brand }} {{ v.model }} · {{ v.plate }} · {{ v.color }}
-                                </span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
+                            {% if role == "Usuario" and user.vehicles.all|length %}
+                            <div class="user-meta">
+                                <strong>Vehículos:</strong>
+                                {% for v in user.vehicles.all %}
+                                    <span class="vehicle-chip">
+                                        {{ v.brand }} {{ v.model }} · {{ v.plate }} · {{ v.color }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
 
-                        {# Información de creación del administrador #}
-                        {% if role == "Administrador" %}
-                            {% for log in confirm_logs %}
-                                {% if log.target_user.id == user.id %}
-                                    <div class="user-meta" style="margin-top:6px;">
-                                        <strong>Registrado por:</strong>
-                                        {{ log.actor.name }} ({{ log.actor.email }})
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                    </td>
-
-                </tr>
+                            {% if role == "Administrador" %}
+                                {% for log in confirm_logs %}
+                                    {% if log.target_user.id == user.id %}
+                                        <div class="user-meta" style="margin-top:6px;">
+                                            <strong>Registrado por:</strong>
+                                            {{ log.actor.name }} ({{ log.actor.email }})
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
             </table>
         </div>
 
@@ -182,8 +210,6 @@ body {
         No existen usuarios activos registrados en el sistema.
     </div>
 {% endif %}
-
-
 
 <p class="summary">
 <strong>Total de usuarios:</strong> {{ total_users }}

@@ -11,6 +11,12 @@ body {
     color: #1F2937;
 }
 
+/* Accesibilidad sin afectar UI */
+.visually-hidden {
+    position: absolute;
+    left: -9999px;
+}
+
 /* HEADER */
 .header-table {
     width: 100%;
@@ -118,19 +124,32 @@ body {
 <body>
 
 <!-- HEADER -->
-<table class="header-table">
-<tr>
-    <td width="20%" align="center">
-        <img src="reports_assets/uniride_logo.png" class="logo" />
-    </td>
-    <td width="80%">
-        <div class="title">{{ report_title }}</div>
-        <div class="meta">{{ report_subtitle }}</div>
-        <div class="meta">
-            Generado el {{ generated_at }} por {{ generated_by }}
-        </div>
-    </td>
-</tr>
+<table class="header-table" aria-label="Encabezado del reporte">
+    <caption class="visually-hidden">
+        Encabezado con logo, título y metadatos
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Logo</th>
+            <th>Información del reporte</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="20%" align="center">
+                <img src="reports_assets/uniride_logo.png"
+                     class="logo"
+                     alt="Logo UniRide" />
+            </td>
+            <td width="80%">
+                <div class="title">{{ report_title }}</div>
+                <div class="meta">{{ report_subtitle }}</div>
+                <div class="meta">
+                    Generado el {{ generated_at }} por {{ generated_by }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 <div class="summary">
@@ -144,19 +163,29 @@ Temporales vencidas: {{ total_temp_expired }}
 {% if permanent_suspensions %}
 {% for s in permanent_suspensions %}
 <div class="card">
-<table class="card-table">
-<tr>
-<td class="card-left permanent">
-{{ s.user }}<br />
-<span class="badge badge-permanent">PERMANENTE</span>
-</td>
+<table class="card-table" aria-label="Suspensión permanente">
+    <caption class="visually-hidden">
+        Información de suspensión permanente
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Usuario</th>
+            <th>Detalles</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="card-left permanent">
+                {{ s.user }}<br />
+                <span class="badge badge-permanent">PERMANENTE</span>
+            </td>
 
-<td class="card-right">
-<div class="row">Administrador: {{ s.admin }}</div>
-<div class="row">Desde: {{ s.start }}</div>
-</td>
-
-</tr>
+            <td class="card-right">
+                <div class="row">Administrador: {{ s.admin }}</div>
+                <div class="row">Desde: {{ s.start }}</div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 </div>
 {% endfor %}
@@ -168,22 +197,31 @@ Temporales vencidas: {{ total_temp_expired }}
 {% if temporary_active %}
 {% for s in temporary_active %}
 <div class="card">
-<table class="card-table">
-<tr>
+<table class="card-table" aria-label="Suspensión temporal activa">
+    <caption class="visually-hidden">
+        Información de suspensión temporal activa
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Usuario</th>
+            <th>Detalles</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="card-left active">
+                {{ s.user }}<br />
+                <span class="badge badge-active">ACTIVA</span>
+            </td>
 
-<td class="card-left active">
-{{ s.user }}<br />
-<span class="badge badge-active">ACTIVA</span>
-</td>
-
-<td class="card-right">
-<div class="row">Administrador: {{ s.admin }}</div>
-<div class="row">
-Periodo: {{ s.start }} - {{ s.end }}
-</div>
-</td>
-
-</tr>
+            <td class="card-right">
+                <div class="row">Administrador: {{ s.admin }}</div>
+                <div class="row">
+                    Periodo: {{ s.start }} - {{ s.end }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 </div>
 {% endfor %}
@@ -195,22 +233,31 @@ Periodo: {{ s.start }} - {{ s.end }}
 {% if temporary_expired %}
 {% for s in temporary_expired %}
 <div class="card">
-<table class="card-table">
-<tr>
+<table class="card-table" aria-label="Suspensión temporal vencida">
+    <caption class="visually-hidden">
+        Información de suspensión temporal vencida
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Usuario</th>
+            <th>Detalles</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="card-left expired">
+                {{ s.user }}<br />
+                <span class="badge badge-expired">VENCIDA</span>
+            </td>
 
-<td class="card-left expired">
-{{ s.user }}<br />
-<span class="badge badge-expired">VENCIDA</span>
-</td>
-
-<td class="card-right">
-<div class="row">Administrador: {{ s.admin }}</div>
-<div class="row">
-Periodo: {{ s.start }} - {{ s.end }}
-</div>
-</td>
-
-</tr>
+            <td class="card-right">
+                <div class="row">Administrador: {{ s.admin }}</div>
+                <div class="row">
+                    Periodo: {{ s.start }} - {{ s.end }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 </div>
 {% endfor %}

@@ -83,3 +83,9 @@ celerybeat.pid
 # === Otros ===
 *.stackdump
 docs/
+# SonarQube
+.scannerwork/
+
+# Opcional (también recomendado)
+.sonar/
+.sonar-project.properties

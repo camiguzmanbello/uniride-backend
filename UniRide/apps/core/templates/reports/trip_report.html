@@ -3,11 +3,18 @@
 <head>
     <meta charset="UTF-8" />
     <title>{{ report_title }}</title>
+
     <style>
         body {
             font-family: Helvetica, Arial, sans-serif;
             font-size: 11px;
             color: #333;
+        }
+
+        /* Accesibilidad sin afectar diseño */
+        .visually-hidden {
+            position: absolute;
+            left: -9999px;
         }
 
         .header-table {
@@ -61,21 +68,36 @@
         }
     </style>
 </head>
+
 <body>
 
-<table class="header-table">
-    <tr>
-        <td width="20%" align="center">
-            <img src="reports_assets/uniride_logo.png" class="logo" />
-        </td>
-        <td width="80%">
-            <div class="title">{{ report_title }}</div>
-            <div class="meta">{{ report_subtitle }}</div>
-            <div class="meta">
-                Generado el {{ generated_at }} por {{ generated_by }}
-            </div>
-        </td>
-    </tr>
+<!-- HEADER -->
+<table class="header-table" aria-label="Encabezado del reporte">
+    <caption class="visually-hidden">
+        Encabezado con logo, título y metadatos del reporte
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Logo</th>
+            <th>Información del reporte</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="20%" align="center">
+                <img src="reports_assets/uniride_logo.png"
+                     class="logo"
+                     alt="Logo UniRide" />
+            </td>
+            <td width="80%">
+                <div class="title">{{ report_title }}</div>
+                <div class="meta">{{ report_subtitle }}</div>
+                <div class="meta">
+                    Generado el {{ generated_at }} por {{ generated_by }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 {% if trips %}
@@ -87,7 +109,11 @@
         Ruta: {{ trip.departure_place }} → {{ trip.destination }}<br />
         Fecha de salida: {{ trip.departure_datetime|date:"d/m/Y H:i" }}
 
-        <table>
+        <table aria-label="Lista de pasajeros del viaje">
+            <caption class="visually-hidden">
+                Pasajeros asociados al viaje {{ trip.id }}
+            </caption>
+
             <thead>
                 <tr>
                     <th>Pasajero</th>
@@ -95,6 +121,7 @@
                     <th>Cupos</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for p in trip.passengers %}
                 <tr>

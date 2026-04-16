@@ -11,6 +11,12 @@ body {
     color: #1F2937;
 }
 
+/* Ocultar accesibilidad sin afectar diseño */
+.visually-hidden {
+    position: absolute;
+    left: -9999px;
+}
+
 /* ===== HEADER ===== */
 .header-table {
     width: 100%;
@@ -18,9 +24,7 @@ body {
     margin-bottom: 10px;
 }
 
-.logo {
-    width: 65px;
-}
+.logo { width: 65px; }
 
 .title {
     font-size: 14px;
@@ -125,9 +129,7 @@ body {
     margin-bottom: 2px;
 }
 
-.status {
-    font-weight: bold;
-}
+.status { font-weight: bold; }
 
 .status-pendiente { color: #B45309; }
 .status-resuelta { color: #047857; }
@@ -145,35 +147,59 @@ body {
 <body>
 
 <!-- HEADER -->
-<table class="header-table">
-    <tr>
-        <td width="20%" align="center">
-            <img src="reports_assets/uniride_logo.png" class="logo" />
-        </td>
-        <td width="80%">
-            <div class="title">{{ report_title }}</div>
-            <div class="meta">{{ report_subtitle }}</div>
-            <div class="meta">
-                Generado el {{ generated_at }} por {{ generated_by }}
-            </div>
-        </td>
-    </tr>
+<table class="header-table" aria-label="Encabezado del reporte">
+    <caption class="visually-hidden">
+        Encabezado con logo, título y metadatos del reporte
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Logo</th>
+            <th>Información</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="20%" align="center">
+                <img src="reports_assets/uniride_logo.png" 
+                     class="logo" 
+                     alt="Logo UniRide" />
+            </td>
+            <td width="80%">
+                <div class="title">{{ report_title }}</div>
+                <div class="meta">{{ report_subtitle }}</div>
+                <div class="meta">
+                    Generado el {{ generated_at }} por {{ generated_by }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 <!-- SUMMARY -->
-<table class="summary-table">
-    <tr>
-        <th>Total de quejas</th>
-        <td>{{ total }}</td>
-    </tr>
-    <tr>
-        <th>Quejas de comportamiento</th>
-        <td>{{ total_behavioral }}</td>
-    </tr>
-    <tr>
-        <th>Quejas técnicas</th>
-        <td>{{ total_technical }}</td>
-    </tr>
+<table class="summary-table" aria-label="Resumen de quejas">
+    <caption class="visually-hidden">
+        Tabla resumen de cantidad de quejas por tipo
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Tipo</th>
+            <th>Cantidad</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th>Total de quejas</th>
+            <td>{{ total }}</td>
+        </tr>
+        <tr>
+            <th>Quejas de comportamiento</th>
+            <td>{{ total_behavioral }}</td>
+        </tr>
+        <tr>
+            <th>Quejas técnicas</th>
+            <td>{{ total_technical }}</td>
+        </tr>
+    </tbody>
 </table>
 
 <!-- COMPORTAMIENTO -->
@@ -182,30 +208,41 @@ body {
 
 {% for c in behavioral_complaints %}
 <div class="complaint-card behavioral">
-    <table class="card-table">
-        <tr>
-            <td class="card-left">
-                <div class="label">Reporta</div>
-                <div class="value">{{ c.reporter_id.name }}</div>
+    <table class="card-table" aria-label="Detalle de queja de comportamiento">
+        <caption class="visually-hidden">
+            Información de queja de comportamiento
+        </caption>
+        <thead class="visually-hidden">
+            <tr>
+                <th>Datos principales</th>
+                <th>Detalles</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="card-left">
+                    <div class="label">Reporta</div>
+                    <div class="value">{{ c.reporter_id.name }}</div>
 
-                <div class="label">Reportado</div>
-                <div class="value">{{ c.reported_user_id.name }}</div>
-            </td>
-            <td class="card-right">
-                <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
-                <div class="meta-row">{{ c.description }}</div>
+                    <div class="label">Reportado</div>
+                    <div class="value">{{ c.reported_user_id.name }}</div>
+                </td>
+                <td class="card-right">
+                    <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
+                    <div class="meta-row">{{ c.description }}</div>
 
-                <div class="meta-row status status-{{ c.status_id.name|lower }}">
-                    Estado: {{ c.status_id.name }}
-                </div>
+                    <div class="meta-row status status-{{ c.status_id.name|lower }}">
+                        Estado: {{ c.status_id.name }}
+                    </div>
 
-                {% if c.status_id.name == "Resuelta" and c.admin_id %}
-                <div class="meta-row">
-                    Resuelta por: {{ c.admin_id.name }}
-                </div>
-                {% endif %}
-            </td>
-        </tr>
+                    {% if c.status_id.name == "Resuelta" and c.admin_id %}
+                    <div class="meta-row">
+                        Resuelta por: {{ c.admin_id.name }}
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
     </table>
 </div>
 {% empty %}
@@ -218,27 +255,38 @@ body {
 
 {% for c in technical_complaints %}
 <div class="complaint-card technical">
-    <table class="card-table">
-        <tr>
-            <td class="card-left">
-                <div class="label">Reporta</div>
-                <div class="value">{{ c.reporter_id.name }}</div>
-            </td>
-            <td class="card-right">
-                <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
-                <div class="meta-row">{{ c.description }}</div>
+    <table class="card-table" aria-label="Detalle de queja técnica">
+        <caption class="visually-hidden">
+            Información de queja técnica
+        </caption>
+        <thead class="visually-hidden">
+            <tr>
+                <th>Datos principales</th>
+                <th>Detalles</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="card-left">
+                    <div class="label">Reporta</div>
+                    <div class="value">{{ c.reporter_id.name }}</div>
+                </td>
+                <td class="card-right">
+                    <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
+                    <div class="meta-row">{{ c.description }}</div>
 
-                <div class="meta-row status status-{{ c.status_id.name|lower }}">
-                    Estado: {{ c.status_id.name }}
-                </div>
+                    <div class="meta-row status status-{{ c.status_id.name|lower }}">
+                        Estado: {{ c.status_id.name }}
+                    </div>
 
-                {% if c.status_id.name == "Resuelta" and c.admin_id %}
-                <div class="meta-row">
-                    Resuelta por: {{ c.admin_id.name }}
-                </div>
-                {% endif %}
-            </td>
-        </tr>
+                    {% if c.status_id.name == "Resuelta" and c.admin_id %}
+                    <div class="meta-row">
+                        Resuelta por: {{ c.admin_id.name }}
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
     </table>
 </div>
 {% empty %}

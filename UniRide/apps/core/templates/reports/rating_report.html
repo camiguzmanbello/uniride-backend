@@ -11,6 +11,12 @@ body {
     color: #1F2937;
 }
 
+/* Ocultar accesibilidad sin afectar diseño */
+.visually-hidden {
+    position: absolute;
+    left: -9999px;
+}
+
 /* ===== HEADER ===== */
 .header-table {
     width: 100%;
@@ -124,19 +130,32 @@ body {
 <body>
 
 <!-- ===== HEADER ===== -->
-<table class="header-table">
-    <tr>
-        <td width="20%" align="center">
-            <img src="reports_assets/uniride_logo.png" class="logo" />
-        </td>
-        <td width="80%">
-            <div class="title">{{ report_title }}</div>
-            <div class="meta">{{ report_subtitle }}</div>
-            <div class="meta">
-                Generado el {{ generated_at }} por {{ generated_by }}
-            </div>
-        </td>
-    </tr>
+<table class="header-table" aria-label="Encabezado del reporte">
+    <caption class="visually-hidden">
+        Encabezado con logo, título y metadatos del reporte
+    </caption>
+    <thead class="visually-hidden">
+        <tr>
+            <th>Logo</th>
+            <th>Información del reporte</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="20%" align="center">
+                <img src="reports_assets/uniride_logo.png"
+                     class="logo"
+                     alt="Logo UniRide" />
+            </td>
+            <td width="80%">
+                <div class="title">{{ report_title }}</div>
+                <div class="meta">{{ report_subtitle }}</div>
+                <div class="meta">
+                    Generado el {{ generated_at }} por {{ generated_by }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 <div class="summary">
@@ -148,18 +167,28 @@ Total de calificaciones registradas: {{ total }}
     <div class="user-card">
 
         <!-- USER HEADER -->
-        <table class="user-header-table">
-            <tr>
-                <td class="user-name">
-                    {{ u.user.name }}
-                </td>
-            </tr>
-            <tr>
-                <td class="user-stats">
-                    Promedio: {{ u.average }} / 5 |
-                    Total de calificaciones: {{ u.total }}
-                </td>
-            </tr>
+        <table class="user-header-table" aria-label="Información del usuario">
+            <caption class="visually-hidden">
+                Datos del usuario y estadísticas de calificación
+            </caption>
+            <thead class="visually-hidden">
+                <tr>
+                    <th>Nombre</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="user-name">
+                        {{ u.user.name }}
+                    </td>
+                </tr>
+                <tr>
+                    <td class="user-stats">
+                        Promedio: {{ u.average }} / 5 |
+                        Total de calificaciones: {{ u.total }}
+                    </td>
+                </tr>
+            </tbody>
         </table>
 
         <div class="divider"></div>
@@ -171,25 +200,37 @@ Total de calificaciones registradas: {{ total }}
 
         {% for r in u.ratings %}
         <div class="rating-row">
-            <table class="rating-table">
-                <tr>
-                    <td class="rating-left">
-                        {{ r.reviewer_id.name }}<br/>
-                        {{ r.created_at|date:"d/m/Y" }}
-                    </td>
+            <table class="rating-table" aria-label="Detalle de calificación">
+                <caption class="visually-hidden">
+                    Información de una calificación individual
+                </caption>
+                <thead class="visually-hidden">
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Puntuación</th>
+                        <th>Comentario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="rating-left">
+                            {{ r.reviewer_id.name }}<br/>
+                            {{ r.created_at|date:"d/m/Y" }}
+                        </td>
 
-                    <td class="rating-center">
-                        {{ r.stars }} / 5
-                    </td>
+                        <td class="rating-center">
+                            {{ r.stars }} / 5
+                        </td>
 
-                    <td class="rating-right">
-                        {% if r.comment %}
-                            {{ r.comment }}
-                        {% else %}
-                            Sin observaciones
-                        {% endif %}
-                    </td>
-                </tr>
+                        <td class="rating-right">
+                            {% if r.comment %}
+                                {{ r.comment }}
+                            {% else %}
+                                Sin observaciones
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
             </table>
         </div>
         {% endfor %}

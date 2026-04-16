@@ -31,6 +31,12 @@ body {
     color: #6B7280;
 }
 
+/* Ocultar elementos accesibles sin afectar layout */
+.visually-hidden {
+    position: absolute;
+    left: -9999px;
+}
+
 /* ACTION TITLE */
 .action-title {
     text-align: center;
@@ -96,19 +102,37 @@ body {
 <body>
 
 <!-- HEADER -->
-<table class="header-table">
-    <tr>
-        <td width="20%" align="center">
-            <img src="reports_assets/uniride_logo.png" class="logo" />
-        </td>
-        <td width="80%">
-            <div class="title">{{ report_title }}</div>
-            <div class="meta">{{ report_subtitle }}</div>
-            <div class="meta">
-                Generado el {{ generated_at }} por {{ generated_by }}
-            </div>
-        </td>
-    </tr>
+<table class="header-table" aria-label="Encabezado del reporte">
+    
+    <!-- Descripción accesible -->
+    <caption class="visually-hidden">
+        Encabezado del reporte con logo, título y metadatos
+    </caption>
+
+    <!-- Encabezado semántico -->
+    <thead class="visually-hidden">
+        <tr>
+            <th>Logo</th>
+            <th>Información del reporte</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        <tr>
+            <td width="20%" align="center">
+                <img src="reports_assets/uniride_logo.png" 
+                     class="logo" 
+                     alt="Logo UniRide" />
+            </td>
+            <td width="80%">
+                <div class="title">{{ report_title }}</div>
+                <div class="meta">{{ report_subtitle }}</div>
+                <div class="meta">
+                    Generado el {{ generated_at }} por {{ generated_by }}
+                </div>
+            </td>
+        </tr>
+    </tbody>
 </table>
 
 {% if sections %}
@@ -120,41 +144,40 @@ body {
 
         {% for l in logs %}
         <div class="log-card">
-    <div class="log-meta">
-        <span>Actor:</span>
-        {{ l.actor|default:"Sistema" }}
-    </div>
+            <div class="log-meta">
+                <span>Actor:</span>
+                {{ l.actor|default:"Sistema" }}
+            </div>
 
-    {% if l.target %}
-    <div class="log-meta">
-        <span>Objetivo:</span>
-        {{ l.target }}
-    </div>
-    {% endif %}
+            {% if l.target %}
+            <div class="log-meta">
+                <span>Objetivo:</span>
+                {{ l.target }}
+            </div>
+            {% endif %}
 
-    {% if l.reason %}
-    <div class="log-meta">
-        <span>Motivo:</span>
-        {{ l.reason }}
-    </div>
-    {% endif %}
+            {% if l.reason %}
+            <div class="log-meta">
+                <span>Motivo:</span>
+                {{ l.reason }}
+            </div>
+            {% endif %}
 
-    <div class="log-meta">
-        <span>Fecha:</span>
-        {{ l.date|date:"d/m/Y H:i" }}
-    </div>
+            <div class="log-meta">
+                <span>Fecha:</span>
+                {{ l.date|date:"d/m/Y H:i" }}
+            </div>
 
-    {% if l.extra_data %}
-    <div class="log-extra">
-        {% for item in l.extra_data %}
-            • {{ item }}<br/>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="log-extra">-</div>
-    {% endif %}
-</div>
-
+            {% if l.extra_data %}
+            <div class="log-extra">
+                {% for item in l.extra_data %}
+                    • {{ item }}<br/>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="log-extra">-</div>
+            {% endif %}
+        </div>
         {% endfor %}
     {% endfor %}
 {% else %}
@@ -164,7 +187,7 @@ body {
 {% endif %}
 
 <div class="summary">
-Total de eventos registrados: {{ total }}
+    Total de eventos registrados: {{ total }}
 </div>
 
 </body>
