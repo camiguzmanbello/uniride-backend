@@ -13,6 +13,10 @@ from apps.chat.models import Chat
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def list_active_complaints(request):
+    """
+    Endpoint seguro contra CSRF porque utiliza autenticación basada en token (JWT),
+    no en cookies de sesión.
+    """
     try:
         complaints = Complaint.objects.select_related(
             'type_id', 'status_id', 'reported_user_id', 'reporter_id'
@@ -51,6 +55,10 @@ def list_active_complaints(request):
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def resolve_complaint(request, complaint_id):
+    """
+    Endpoint seguro contra CSRF porque utiliza autenticación basada en token (JWT),
+    no en cookies de sesión.
+    """
     try:
         complaint = get_object_or_404(
             Complaint,
@@ -94,6 +102,10 @@ def resolve_complaint(request, complaint_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_interactable_users(request):
+    """
+    Endpoint seguro contra CSRF porque utiliza autenticación basada en token (JWT),
+    no en cookies de sesión.
+    """
     """
     Obtiene la lista de usuarios con los que el usuario actual ha interactuado
     en viajes (como conductor o pasajero) o en chats.
@@ -152,6 +164,10 @@ def get_interactable_users(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_complaint(request):
+    """
+    Endpoint seguro contra CSRF porque utiliza autenticación basada en token (JWT),
+    no en cookies de sesión.
+    """
     """
     Crea una queja de tipo Técnica (Bug/Recomendación) o de Comportamiento.
     """
@@ -272,6 +288,10 @@ def create_complaint(request):
 @permission_classes([IsAdminUser])
 def manage_complaint_types(request):
     """
+    Endpoint seguro contra CSRF porque utiliza autenticación basada en token (JWT),
+    no en cookies de sesión.
+    """
+    """
     Listar o registrar nuevos tipos de quejas.
     """
     try:
@@ -311,6 +331,10 @@ def manage_complaint_types(request):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
 def manage_complaint_status(request):
+    """
+    Endpoint seguro contra CSRF porque utiliza autenticación basada en token (JWT),
+    no en cookies de sesión.
+    """
     """
     Listar o registrar nuevos estados de quejas.
     """

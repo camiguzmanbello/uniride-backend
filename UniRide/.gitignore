@@ -88,4 +88,4 @@ docs/
 
 # Opcional (también recomendado)
 .sonar/
-.sonar-project.properties
+sonar-project.properties

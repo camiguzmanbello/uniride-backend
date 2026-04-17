@@ -66,7 +66,12 @@ body {
     text-align: left;
     font-weight: bold;
 }
-
+.caption {
+    font-size: 8px;
+    color: #6B7280;
+    text-align: left;
+    margin-bottom: 2px;
+}
 .summary-table td {
     text-align: right;
     width: 30%;
@@ -157,6 +162,7 @@ body {
 <body>
 
 <!-- HEADER -->
+<!-- HEADER -->
 <table class="header-table" aria-label="Encabezado del reporte">
     <caption class="visually-hidden">
         Encabezado con logo, título y metadatos del reporte
@@ -164,8 +170,8 @@ body {
 
     <thead class="visually-hidden">
         <tr>
-            <th>Logo</th>
-            <th>Información</th>
+            <th scope="col">Logo</th>
+            <th scope="col">Información</th>
         </tr>
     </thead>
 
@@ -196,34 +202,43 @@ body {
 
     <thead class="visually-hidden">
         <tr>
-            <th>Tipo</th>
-            <th>Cantidad</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Cantidad</th>
         </tr>
     </thead>
 
     <tbody>
         <tr>
-            <th>Total de quejas</th>
+            <th scope="row">Total de quejas</th>
             <td>{{ total }}</td>
         </tr>
         <tr>
-            <th>Quejas de comportamiento</th>
+            <th scope="row">Quejas de comportamiento</th>
             <td>{{ total_behavioral }}</td>
         </tr>
         <tr>
-            <th>Quejas técnicas</th>
+            <th scope="row">Quejas técnicas</th>
             <td>{{ total_technical }}</td>
         </tr>
     </tbody>
 </table>
 
 <!-- COMPORTAMIENTO -->
-<div class="section-title" style="color:#991B1B;">QUEJAS DE COMPORTAMIENTO</div>
-<div class="section-divider"></div>
-
 {% for c in behavioral_complaints %}
 <div class="complaint-card behavioral">
-    <table class="card-table">
+    <table class="card-table" aria-label="Detalle de queja de comportamiento">
+
+        <caption class="visually-hidden">
+            Información de queja de comportamiento
+        </caption>
+
+        <thead class="visually-hidden">
+            <tr>
+                <th scope="col">Datos principales</th>
+                <th scope="col">Detalles</th>
+            </tr>
+        </thead>
+
         <tbody>
             <tr>
                 <td class="card-left">
@@ -252,17 +267,24 @@ body {
         </tbody>
     </table>
 </div>
-{% empty %}
-<div class="empty">No hay quejas de comportamiento registradas.</div>
 {% endfor %}
 
 <!-- TECNICAS -->
-<div class="section-title" style="color:#1E3A8A;">QUEJAS TÉCNICAS</div>
-<div class="section-divider"></div>
-
 {% for c in technical_complaints %}
 <div class="complaint-card technical">
-    <table class="card-table">
+    <table class="card-table" aria-label="Detalle de queja técnica">
+
+        <caption class="visually-hidden">
+            Información de queja técnica
+        </caption>
+
+        <thead class="visually-hidden">
+            <tr>
+                <th scope="col">Datos principales</th>
+                <th scope="col">Detalles</th>
+            </tr>
+        </thead>
+
         <tbody>
             <tr>
                 <td class="card-left">
@@ -288,9 +310,14 @@ body {
         </tbody>
     </table>
 </div>
-{% empty %}
-<div class="empty">No hay quejas técnicas registradas.</div>
-{% endfor %}
+{% endfor %} 
+
+{% if not behavioral_complaints and not technical_complaints %} 
+<div class="empty">
+    No se encontraron quejas para el período seleccionado.
+</div>
+{% endif %}
+
 
 </body>
 </html>
