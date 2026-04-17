@@ -276,6 +276,7 @@ def create_complaint(request):
 # --- Endpoints para Tipos de Quejas (ComplaintType) ---
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
+@require_GET
 def get_complaint_types(request):
     types = ComplaintType.objects.all().values('id', 'name', 'description')
     return Response(list(types), status=200)
@@ -283,6 +284,7 @@ def get_complaint_types(request):
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
+@require_POST
 def create_complaint_type(request):
     name = request.data.get('name')
     description = request.data.get('description', '')
@@ -306,6 +308,7 @@ def create_complaint_type(request):
 # --- Endpoints para Estados de Quejas (ComplaintStatus) ---
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
+@require_GET
 def get_complaint_status(request):
     statuses = ComplaintStatus.objects.all().values('id', 'name')
     return Response(list(statuses), status=200)
@@ -313,6 +316,7 @@ def get_complaint_status(request):
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
+@require_POST
 def create_complaint_status(request):
     name = request.data.get('name')
 
