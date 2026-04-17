@@ -10,6 +10,8 @@ from apps.complaints.models import Complaint, ComplaintType, ComplaintStatus
 from apps.trips.models import Trip, TripPassenger
 from apps.chat.models import Chat
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_http_methods
+
 # listar quejas activas (pendientes)
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
@@ -275,6 +277,7 @@ def create_complaint(request):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
+@require_http_methods(["GET", "POST"])
 def manage_complaint_types(request):
     """
     Listar o registrar nuevos tipos de quejas.
@@ -315,6 +318,7 @@ def manage_complaint_types(request):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
+@require_http_methods(["GET", "POST"])
 def manage_complaint_status(request):
 
     """
