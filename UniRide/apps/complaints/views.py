@@ -302,50 +302,29 @@ def create_complaint_type(request):
         "detail": "Creado correctamente",
         "id": complaint_type.id
     }, status=201)
-@api_view(['GET', 'POST'])
-@permission_classes([IsAdminUser])
-def manage_complaint_types(request):
-
-    if request.method == 'GET':
-        return get_complaint_types(request)
-
-    elif request.method == 'POST':
-        return create_complaint_type(request)
-
 
 # --- Endpoints para Estados de Quejas (ComplaintStatus) ---
-# NOSONAR
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes([IsAdminUser])
-@require_http_methods(["GET", "POST"])
-def manage_complaint_status(request):
+def get_complaint_status(request):
+    statuses = ComplaintStatus.objects.all().values('id', 'name')
+    return Response(list(statuses), status=200)
 
-    """
-    Listar o registrar nuevos estados de quejas.
-    """
-    try:
-        if request.method == 'GET':
-            statuses = ComplaintStatus.objects.all().values('id', 'name')
-            return Response(list(statuses), status=200)
 
-        elif request.method == 'POST':
-            name = request.data.get('name')
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def create_complaint_status(request):
+    name = request.data.get('name')
 
-            if not name:
-                return Response({"detail": "El nombre del estado es obligatorio."}, status=400)
+    if not name:
+        return Response({"detail": "El nombre del estado es obligatorio."}, status=400)
 
-            status_obj, created = ComplaintStatus.objects.get_or_create(name=name)
+    status_obj, created = ComplaintStatus.objects.get_or_create(name=name)
 
-            if not created:
-                return Response({"detail": f"El estado '{name}' ya existe."}, status=400)
+    if not created:
+        return Response({"detail": "Ya existe."}, status=400)
 
-            return Response({
-                "detail": "Estado de queja creado correctamente.",
-                "id": status_obj.id
-            }, status=201)
-            
-    except Exception as e:
-        return Response(
-            {"detail": "Ocurrió un error al gestionar los estados de quejas.", "error": str(e)},
-            status=500
-        )
+    return Response({
+        "detail": "Estado creado correctamente",
+        "id": status_obj.id
+    }, status=201)

@@ -7,8 +7,10 @@ from .views import (
     resolve_complaint,
     get_interactable_users,
     create_complaint,
-    manage_complaint_types,
-    manage_complaint_status,
+    get_complaint_types,
+    create_complaint_type,
+    get_complaint_status,
+    create_complaint_status
 )
 
 # Router (si en el futuro usas ViewSets)
@@ -46,16 +48,13 @@ urlpatterns = [
     # ==============================
     # ADMIN - CONFIGURACIÓN
     # ==============================
-    path(
-        'types/',
-        manage_complaint_types,
-        name='manage_complaint_types'
-    ),
-    path(
-        'statuses/',
-        manage_complaint_status,
-        name='manage_complaint_status'
-    ),
+    # Complaint Types
+    path('types/', get_complaint_types, name='get_complaint_types'),
+    path('types/create/', create_complaint_type, name='create_complaint_type'),
+
+    # Complaint Status
+    path('statuses/', get_complaint_status, name='get_complaint_status'),
+    path('statuses/create/', create_complaint_status, name='create_complaint_status'),
 ]
 
 # Si luego usas ViewSets, puedes hacer:
