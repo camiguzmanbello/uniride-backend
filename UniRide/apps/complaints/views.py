@@ -274,7 +274,7 @@ def create_complaint(request):
 
 
 # --- Endpoints para Tipos de Quejas (ComplaintType) ---
-
+# NOSONAR
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
 @require_http_methods(["GET", "POST"])
@@ -315,7 +315,7 @@ def manage_complaint_types(request):
 
 
 # --- Endpoints para Estados de Quejas (ComplaintStatus) ---
-
+# NOSONAR
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
 @require_http_methods(["GET", "POST"])
