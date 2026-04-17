@@ -274,44 +274,43 @@ def create_complaint(request):
 
 
 # --- Endpoints para Tipos de Quejas (ComplaintType) ---
-# NOSONAR
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_complaint_types(request):
+    types = ComplaintType.objects.all().values('id', 'name', 'description')
+    return Response(list(types), status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def create_complaint_type(request):
+    name = request.data.get('name')
+    description = request.data.get('description', '')
+
+    if not name:
+        return Response({"detail": "El nombre es obligatorio."}, status=400)
+
+    complaint_type, created = ComplaintType.objects.get_or_create(
+        name=name,
+        defaults={'description': description}
+    )
+
+    if not created:
+        return Response({"detail": "Ya existe."}, status=400)
+
+    return Response({
+        "detail": "Creado correctamente",
+        "id": complaint_type.id
+    }, status=201)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
-@require_http_methods(["GET", "POST"])
 def manage_complaint_types(request):
-    """
-    Listar o registrar nuevos tipos de quejas.
-    """
-    try:
-        if request.method == 'GET':
-            types = ComplaintType.objects.all().values('id', 'name', 'description')
-            return Response(list(types), status=200)
 
-        elif request.method == 'POST':
-            name = request.data.get('name')
-            description = request.data.get('description', '')
+    if request.method == 'GET':
+        return get_complaint_types(request)
 
-            if not name:
-                return Response({"detail": "El nombre del tipo de queja es obligatorio."}, status=400)
-
-            complaint_type, created = ComplaintType.objects.get_or_create(
-                name=name,
-                defaults={'description': description}
-            )
-
-            if not created:
-                return Response({"detail": f"El tipo de queja '{name}' ya existe."}, status=400)
-
-            return Response({
-                "detail": "Tipo de queja creado correctamente.",
-                "id": complaint_type.id
-            }, status=201)
-            
-    except Exception as e:
-        return Response(
-            {"detail": "Ocurrió un error al gestionar los tipos de quejas.", "error": str(e)},
-            status=500
-        )
+    elif request.method == 'POST':
+        return create_complaint_type(request)
 
 
 # --- Endpoints para Estados de Quejas (ComplaintStatus) ---
