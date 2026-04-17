@@ -1,8 +1,7 @@
 import os
-from django.conf import settings
 from django.contrib.staticfiles import finders
 
-def link_callback(uri, rel):
+def link_callback(uri, rel=None):
     """
     Convierte rutas de static en rutas reales del sistema
     para que xhtml2pdf pueda leerlas.
@@ -15,4 +14,4 @@ def link_callback(uri, rel):
         return result
 
     # Si no se encuentra
-    raise Exception(f"Archivo no encontrado: {uri}")
+    raise FileNotFoundError(f"Archivo no encontrado en staticfiles: {uri}")

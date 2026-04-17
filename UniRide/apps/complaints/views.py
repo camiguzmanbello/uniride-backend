@@ -4,7 +4,6 @@ from rest_framework.response import Response  # Retornar respuestas (Response)
 # Definir quién puede acceder a cada vista (permissions)
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from apps.users.models import AuditLog, User
-from apps.users.serializer import *
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from apps.complaints.models import Complaint, ComplaintType, ComplaintStatus

@@ -26,6 +26,16 @@ body {
 
 .logo { width: 65px; }
 
+/* 🔥 Reemplazo de width y align */
+.header-logo {
+    width: 20%;
+    text-align: center;
+}
+
+.header-info {
+    width: 80%;
+}
+
 .title {
     font-size: 14px;
     font-weight: bold;
@@ -151,20 +161,23 @@ body {
     <caption class="visually-hidden">
         Encabezado con logo, título y metadatos del reporte
     </caption>
+
     <thead class="visually-hidden">
         <tr>
             <th>Logo</th>
             <th>Información</th>
         </tr>
     </thead>
+
     <tbody>
         <tr>
-            <td width="20%" align="center">
+            <td class="header-logo">
                 <img src="reports_assets/uniride_logo.png" 
                      class="logo" 
                      alt="Logo UniRide" />
             </td>
-            <td width="80%">
+
+            <td class="header-info">
                 <div class="title">{{ report_title }}</div>
                 <div class="meta">{{ report_subtitle }}</div>
                 <div class="meta">
@@ -180,12 +193,14 @@ body {
     <caption class="visually-hidden">
         Tabla resumen de cantidad de quejas por tipo
     </caption>
+
     <thead class="visually-hidden">
         <tr>
             <th>Tipo</th>
             <th>Cantidad</th>
         </tr>
     </thead>
+
     <tbody>
         <tr>
             <th>Total de quejas</th>
@@ -208,16 +223,7 @@ body {
 
 {% for c in behavioral_complaints %}
 <div class="complaint-card behavioral">
-    <table class="card-table" aria-label="Detalle de queja de comportamiento">
-        <caption class="visually-hidden">
-            Información de queja de comportamiento
-        </caption>
-        <thead class="visually-hidden">
-            <tr>
-                <th>Datos principales</th>
-                <th>Detalles</th>
-            </tr>
-        </thead>
+    <table class="card-table">
         <tbody>
             <tr>
                 <td class="card-left">
@@ -227,6 +233,7 @@ body {
                     <div class="label">Reportado</div>
                     <div class="value">{{ c.reported_user_id.name }}</div>
                 </td>
+
                 <td class="card-right">
                     <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
                     <div class="meta-row">{{ c.description }}</div>
@@ -255,22 +262,14 @@ body {
 
 {% for c in technical_complaints %}
 <div class="complaint-card technical">
-    <table class="card-table" aria-label="Detalle de queja técnica">
-        <caption class="visually-hidden">
-            Información de queja técnica
-        </caption>
-        <thead class="visually-hidden">
-            <tr>
-                <th>Datos principales</th>
-                <th>Detalles</th>
-            </tr>
-        </thead>
+    <table class="card-table">
         <tbody>
             <tr>
                 <td class="card-left">
                     <div class="label">Reporta</div>
                     <div class="value">{{ c.reporter_id.name }}</div>
                 </td>
+
                 <td class="card-right">
                     <div class="meta-row">{{ c.created_at|date:"d/m/Y H:i" }}</div>
                     <div class="meta-row">{{ c.description }}</div>

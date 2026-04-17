@@ -1,3 +1,4 @@
+import secrets
 import cloudinary
 from .authentication import CookieJWTAuthentication
 from .utils.audit import registrar_log
@@ -20,7 +21,6 @@ from apps.users.serializer import *
 from apps.users.models import User, Role, PendingUser, UserSuspension, AuditLog
 from apps.users.permissions import IsSelfOrAdmin
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, RetrieveUpdateAPIView
-import random
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
@@ -36,8 +36,19 @@ from django.shortcuts import get_object_or_404
 from apps.complaints.models import Complaint
 from apps.users.utils.suspension_service import check_and_handle_suspension
 from .utils.cloudinary_utils import delete_cloudinary_image, extract_public_id_from_url
-from apps.users.utils.login_payload_crypto import LoginPayloadDecryptionError, decrypt_login_payload, get_login_key_status, get_login_public_key_kid, get_login_public_key_pem
-
+from apps.users.utils.login_payload_crypto import  decrypt_login_payload, get_login_key_status, get_login_public_key_kid, get_login_public_key_pem
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+from email.mime.image import MIMEImage
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+from pathlib import Path
+import os
+from datetime import timedelta
+from django.utils import timezone
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -277,27 +288,16 @@ class PerfilView(APIView):
 
 
 
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.conf import settings
-from email.mime.image import MIMEImage
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import permissions
-from pathlib import Path
-import os
-import random
-from datetime import timedelta
-from django.utils import timezone
-
 class PreRegisterAdminView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def _generate_code(self):
         while True:
-            code = str(random.randint(100000, 999999))
-            if not PendingUser.objects.filter(code=code, expires_at__gt=timezone.now()).exists():
+            code = str(secrets.randbelow(900000) + 100000)
+            if not PendingUser.objects.filter(
+                code=code,
+                expires_at__gt=timezone.now()
+            ).exists():
                 return code
 
     def _normalize_phone_number(self, phone: str) -> str:

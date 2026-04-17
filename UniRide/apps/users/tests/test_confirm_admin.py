@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import timedelta
-
+import secrets
 from apps.users.models import PendingUser, User, Role
 
 
@@ -26,13 +26,13 @@ class ConfirmAdminViewTests(APITestCase):
         self.email = "admin@test.com"
         self.phone = "3000000000"
         self.code = "123456"
-        self.password = "Test1234"
+        self.password = secrets.token_urlsafe(12)
 
         # Actor: administrador que preregistró
         self.actor = User.objects.create_user(
             email="registrador@test.com",
             username="registrador@test.com",
-            password="123456",
+            password=secrets.token_urlsafe(10),
             is_staff=True,
             role_id_id=1
         )
@@ -132,7 +132,7 @@ class ConfirmAdminViewTests(APITestCase):
         User.objects.create_user(
             email=self.email,
             username=self.email,
-            password="111111",
+            password=secrets.token_urlsafe(10),
             is_active=True,
             is_staff=True,
             role_id_id=1

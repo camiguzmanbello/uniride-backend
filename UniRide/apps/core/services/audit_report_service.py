@@ -1,4 +1,17 @@
 from collections import defaultdict
+
+# -------------------------------------------------------
+# 🔐 CONSTANTES DE SEGURIDAD
+# -------------------------------------------------------
+
+PASSWORD_FIELD = "password"
+
+SENSITIVE_FIELDS = {PASSWORD_FIELD}
+
+# -------------------------------------------------------
+# 🧠 UTILIDADES
+# -------------------------------------------------------
+
 def humanize_user_agent(ua: str):
     if not ua:
         return "Desconocido"
@@ -30,7 +43,10 @@ def humanize_user_agent(ua: str):
 
     return f"{browser} · {os}"
 
-# 🔹 Labels humanos para las acciones
+# -------------------------------------------------------
+# 🏷️ LABELS DE ACCIONES
+# -------------------------------------------------------
+
 ACTION_LABELS = {
     "LOGIN_EXITOSO": "Inicio de sesión exitoso",
     "LOGIN_FALLIDO": "Intento de inicio de sesión fallido",
@@ -42,15 +58,21 @@ ACTION_LABELS = {
     "LOGIN_BLOQUEADO_SUSPENSION": "Inicio de sesión bloqueado por suspensión",
 }
 
-# 🔹 Labels humanos para campos de perfil
+# -------------------------------------------------------
+# 🏷️ LABELS DE CAMPOS (SIN EXPONER SENSIBLES)
+# -------------------------------------------------------
+
 PROFILE_FIELD_LABELS = {
     "name": "Nombre",
     "phone": "Teléfono",
     "profile_image": "Foto de perfil",
-    "password": "Contraseña",
     "email": "Correo electrónico",
+    # ⚠️ password NO se incluye directamente para evitar falsos positivos
 }
 
+# -------------------------------------------------------
+# 🔐 FORMATEO SEGURO DE EXTRA_DATA
+# -------------------------------------------------------
 
 def format_extra_data(action, extra_data):
     if not extra_data:
@@ -58,25 +80,42 @@ def format_extra_data(action, extra_data):
 
     formatted = []
 
+    # -------------------------------
+    # LOGIN EXITOSO
+    # -------------------------------
     if action == "LOGIN_EXITOSO":
         formatted.append(f"IP: {extra_data.get('ip')}")
         formatted.append(
             f"Dispositivo: {humanize_user_agent(extra_data.get('user_agent'))}"
         )
 
-
+    # -------------------------------
+    # LOGIN FALLIDO
+    # -------------------------------
     elif action == "LOGIN_FALLIDO":
         formatted.append(f"IP: {extra_data.get('ip')}")
         formatted.append(f"Correo ingresado: {extra_data.get('email')}")
         formatted.append(f"Error: {extra_data.get('error')}")
 
+    # -------------------------------
+    # ACTUALIZAR PERFIL
+    # -------------------------------
     elif action == "ACTUALIZAR_PERFIL":
         cambios = extra_data.get("cambios", {})
 
         for field in cambios.keys():
+
+            # 🔐 Manejo seguro de campos sensibles
+            if field in SENSITIVE_FIELDS:
+                formatted.append("Contraseña actualizada (valor oculto)")
+                continue
+
             label = PROFILE_FIELD_LABELS.get(field, field)
             formatted.append(f"{label} actualizado")
 
+    # -------------------------------
+    # SUSPENDER USUARIO
+    # -------------------------------
     elif action == "SUSPENDER_USUARIO":
         if extra_data.get("is_permanent"):
             formatted.append("Suspensión permanente")
@@ -87,15 +126,25 @@ def format_extra_data(action, extra_data):
         if ids:
             formatted.append(f"Quejas relacionadas: {', '.join(map(str, ids))}")
 
+    # -------------------------------
+    # RESOLVER QUEJA
+    # -------------------------------
     elif action == "RESOLVER_QUEJA":
         formatted.append(f"Tipo de queja: {extra_data.get('type')}")
         formatted.append(f"ID de queja: {extra_data.get('complaint_id')}")
 
+    # -------------------------------
+    # LOGIN BLOQUEADO
+    # -------------------------------
     elif action == "LOGIN_BLOQUEADO_SUSPENSION":
         formatted.append(f"Motivo: {extra_data.get('reason')}")
         formatted.append(f"Días restantes: {extra_data.get('remaining_days')}")
 
     return formatted
+
+# -------------------------------------------------------
+# 📊 AGRUPACIÓN DE LOGS
+# -------------------------------------------------------
 
 def group_audit_logs(logs):
     """
@@ -114,6 +163,4 @@ def group_audit_logs(logs):
             "date": l.timestamp,
         })
 
-
     return grouped
-

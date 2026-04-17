@@ -26,6 +26,16 @@ body {
 
 .logo { width: 65px; }
 
+/* 🔥 REEMPLAZO DE width Y align */
+.header-logo {
+    width: 20%;
+    text-align: center;
+}
+
+.header-info {
+    width: 80%;
+}
+
 .title {
     font-size: 14px;
     font-weight: bold;
@@ -134,20 +144,25 @@ body {
     <caption class="visually-hidden">
         Encabezado con logo, título y metadatos del reporte
     </caption>
+
     <thead class="visually-hidden">
         <tr>
             <th>Logo</th>
             <th>Información del reporte</th>
         </tr>
     </thead>
+
     <tbody>
         <tr>
-            <td width="20%" align="center">
+            <!-- ✅ CORREGIDO -->
+            <td class="header-logo">
                 <img src="reports_assets/uniride_logo.png"
                      class="logo"
                      alt="Logo UniRide" />
             </td>
-            <td width="80%">
+
+            <!-- ✅ CORREGIDO -->
+            <td class="header-info">
                 <div class="title">{{ report_title }}</div>
                 <div class="meta">{{ report_subtitle }}</div>
                 <div class="meta">
@@ -171,11 +186,13 @@ Total de calificaciones registradas: {{ total }}
             <caption class="visually-hidden">
                 Datos del usuario y estadísticas de calificación
             </caption>
+
             <thead class="visually-hidden">
                 <tr>
                     <th>Nombre</th>
                 </tr>
             </thead>
+
             <tbody>
                 <tr>
                     <td class="user-name">
@@ -204,6 +221,7 @@ Total de calificaciones registradas: {{ total }}
                 <caption class="visually-hidden">
                     Información de una calificación individual
                 </caption>
+
                 <thead class="visually-hidden">
                     <tr>
                         <th>Usuario</th>
@@ -211,6 +229,7 @@ Total de calificaciones registradas: {{ total }}
                         <th>Comentario</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     <tr>
                         <td class="rating-left">

@@ -1,7 +1,7 @@
 import base64
 import json
 import os
-
+import secrets
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -43,7 +43,8 @@ class LoginEncryptedPayloadTests(APITestCase):
     def setUp(self):
         self.url = "/api/users/Login/"
         self.email = "user@test.com"
-        self.password = "Test12345"
+        # ⚠️ Test-only credential (no producción)
+        self.password = secrets.token_urlsafe(12)
         self.user = User.objects.create_user(
             username=self.email,
             email=self.email,

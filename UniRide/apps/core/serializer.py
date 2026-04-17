@@ -68,7 +68,6 @@ class UserReportSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        report_type = self.context.get("type")
 
         # Admin → NO vehículos
         if data["role"] == "Administrador":

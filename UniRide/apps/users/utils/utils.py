@@ -1,18 +1,19 @@
 from django.utils import timezone
-import random
 from apps.users.models import PendingUser
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 from email.mime.image import MIMEImage
 from pathlib import Path
 from django.utils.html import strip_tags
-import os
-
+import secrets
 def generate_verification_code():
-    """Genera un código único de 6 dígitos no expirado."""
+    """Genera un código único de 6 dígitos no expirado (seguro)."""
     while True:
-        code = str(random.randint(100000, 999999))
-        if not PendingUser.objects.filter(code=code, expires_at__gt=timezone.now()).exists():
+        code = str(secrets.randbelow(900000) + 100000)
+        if not PendingUser.objects.filter(
+            code=code,
+            expires_at__gt=timezone.now()
+        ).exists():
             return code
 
 def send_code_email(subject: str, message: str, finalmessage: str, email: str, code: str = None, link_url: str = None, link_text: str = None) -> None:

@@ -25,6 +25,16 @@ body {
 
 .logo { width: 80px; }
 
+/* 🔥 REEMPLAZO DE width Y align */
+.header-logo {
+    width: 20%;
+    text-align: center;
+}
+
+.header-info {
+    width: 80%;
+}
+
 .title {
     font-size: 16px;
     color: #1A4D45;
@@ -121,20 +131,25 @@ body {
     <caption class="visually-hidden">
         Encabezado con logo, título y metadatos del reporte
     </caption>
+
     <thead class="visually-hidden">
         <tr>
             <th>Logo</th>
             <th>Información del reporte</th>
         </tr>
     </thead>
+
     <tbody>
         <tr>
-            <td width="20%" align="center">
+            <!-- ✅ CORREGIDO -->
+            <td class="header-logo">
                 <img src="reports_assets/uniride_logo.png"
                      class="logo"
                      alt="Logo UniRide" />
             </td>
-            <td width="80%">
+
+            <!-- ✅ CORREGIDO -->
+            <td class="header-info">
                 <div class="title">{{ report_title }}</div>
                 <div class="meta">{{ report_subtitle }}</div>
                 <div class="meta">
@@ -156,18 +171,21 @@ body {
                 <caption class="visually-hidden">
                     Datos del usuario {{ user.name }}
                 </caption>
+
                 <thead class="visually-hidden">
                     <tr>
                         <th>Datos básicos</th>
                         <th>Detalles</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     <tr>
                         <td class="user-left">
                             <div class="user-name">{{ user.name }}</div>
                             <div class="user-sub">{{ role }}</div>
                         </td>
+
                         <td class="user-right">
                             <div class="user-meta"><strong>Email:</strong> {{ user.email }}</div>
                             <div class="user-meta"><strong>Teléfono:</strong> {{ user.phone|default:"—" }}</div>
