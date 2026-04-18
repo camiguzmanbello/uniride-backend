@@ -118,6 +118,8 @@ class TripViewSet(ModelViewSet):
     permission_classes = [permissions.AllowAny]
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
+    # Evita que URLs con pk no numérico (ej. "s") lleguen a get_object y causen 500.
+    lookup_value_regex = r"\d+"
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def history(self, request):
@@ -216,9 +218,16 @@ class TripViewSet(ModelViewSet):
             return Response({"detail": "No puedes iniciar el viaje sin al menos un pasajero aceptado."}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            in_progress_status = TripStatus.objects.get(name='En curso')
-            rejected_status = TripPassengerStatus.objects.get(name='Rechazado')
-        except (TripStatus.DoesNotExist, TripPassengerStatus.DoesNotExist):
+            # En producción puede existir variación de mayúsculas/minúsculas en catálogos.
+            in_progress_status = TripStatus.objects.filter(name__iexact='En curso').first()
+            rejected_status = TripPassengerStatus.objects.filter(name__iexact='Rechazado').first()
+
+            # Fallback defensivo: si faltan catálogos, se crean para evitar 500 al iniciar.
+            if not in_progress_status:
+                in_progress_status = TripStatus.objects.create(name='En curso')
+            if not rejected_status:
+                rejected_status = TripPassengerStatus.objects.create(name='Rechazado')
+        except Exception:
             return Response({"detail": "Error de configuración: Estados necesarios no encontrados."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
         # 1. Cambiar estado del viaje
