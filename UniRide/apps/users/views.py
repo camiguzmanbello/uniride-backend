@@ -686,23 +686,30 @@ class RegisterView(APIView):
                 )
 
             # Enviar correo
-            send_code_email(
-                subject="Verificación de Cuenta - UniRide",
-                message=(
-                    f'Hola {pending.name},<br><br>'
-                    f'Estás a punto de registrarte en UniRide, '
-                    f'tu código de verificación es:<br>'
-                ),
-                finalmessage=(
-                    f'Este código expirará en 10 minutos.<br><br>'
-                    f'Si no solicitaste este registro, ignora este mensaje.<br><br>'
-                    f'Gracias, el equipo de UniRide.'
-                ),
-                email=email,
-                code=code,
-                link_url="https://app.unirideweb.online/verify-code",
-                link_text="Verificar mi cuenta"
-            )
+            try:
+                send_code_email(
+                    subject="Verificación de Cuenta - UniRide",
+                    message=(
+                        f'Hola {pending.name},<br><br>'
+                        f'Estás a punto de registrarte en UniRide, '
+                        f'tu código de verificación es:<br>'
+                    ),
+                    finalmessage=(
+                        f'Este código expirará en 10 minutos.<br><br>'
+                        f'Si no solicitaste este registro, ignora este mensaje.<br><br>'
+                        f'Gracias, el equipo de UniRide.'
+                    ),
+                    email=email,
+                    code=code,
+                    link_url="https://app.unirideweb.online/verify-code",
+                    link_text="Verificar mi cuenta"
+                )
+            except Exception:
+                logger.exception("Error enviando correo de verificación de registro")
+                return Response(
+                    {"error": "No fue posible enviar el correo de verificación. Intenta de nuevo más tarde."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
 
             return Response(
                 {"message": "Se te ha enviado un código de verificación, verifica tu correo.", "email": email},
@@ -1060,22 +1067,29 @@ class PasswordResetRequestView(APIView):
         reset_link = _build_frontend_url(getattr(settings, "PASSWORD_RESET_PATH", "/reset-password"), {"token": token})
 
         # Enviar correo con el enlace de restablecimiento
-        send_code_email(
-            subject='Recuperación de contraseña - UniRide',
-            message=(
-                f'Hola {user.name},<br>'
-                f'Solicitaste restablecer tu contraseña.<br>'
-                f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
-            ),
-            finalmessage=(
-                f'Este enlace expirará en 10 minutos.<br>'
-                f'Si no solicitaste este cambio, ignora este mensaje.<br>'
-                f'Gracias, el equipo de UniRide.'
-            ),
-            email=user.email,
-            link_url=reset_link,
-            link_text="Restablecer contraseña"
-        )
+        try:
+            send_code_email(
+                subject='Recuperación de contraseña - UniRide',
+                message=(
+                    f'Hola {user.name},<br>'
+                    f'Solicitaste restablecer tu contraseña.<br>'
+                    f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
+                ),
+                finalmessage=(
+                    f'Este enlace expirará en 10 minutos.<br>'
+                    f'Si no solicitaste este cambio, ignora este mensaje.<br>'
+                    f'Gracias, el equipo de UniRide.'
+                ),
+                email=user.email,
+                link_url=reset_link,
+                link_text="Restablecer contraseña"
+            )
+        except Exception:
+            logger.exception("Error enviando correo de recuperación de contraseña")
+            return Response(
+                {"error": "No fue posible enviar el correo de recuperación. Intenta de nuevo más tarde."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         return Response({"message": "Se te ha enviado un codigo de recuperacion al correo."}, status=status.HTTP_200_OK)
 
@@ -1164,24 +1178,31 @@ class ResendNewVerificationCodeView(APIView):
         pending.save()
 
         # Enviar el correo con el nuevo código
-        send_code_email(
-            subject="Nuevo Código de Verificación - UniRide",
-            message=(
-                f'Hola {pending.name},<br><br>'
-                f'Tu código de verificación ha sido regenerado, '
-                f'el nuevo código es:<br>'
-            ),
-            finalmessage=(
-                f'Utiliza este código para completar tu registro. '
-                f'Este código expirará en 10 minutos.<br><br>'
-                f'Si no solicitaste este cambio, ignora este mensaje.<br><br>'
-                f'Gracias, el equipo de UniRide.'
-            ),
-            email=pending.email,
-            code=new_code,
-            link_url="https://app.unirideweb.online/verify-code",
-            link_text="Verificar mi cuenta"
-        )
+        try:
+            send_code_email(
+                subject="Nuevo Código de Verificación - UniRide",
+                message=(
+                    f'Hola {pending.name},<br><br>'
+                    f'Tu código de verificación ha sido regenerado, '
+                    f'el nuevo código es:<br>'
+                ),
+                finalmessage=(
+                    f'Utiliza este código para completar tu registro. '
+                    f'Este código expirará en 10 minutos.<br><br>'
+                    f'Si no solicitaste este cambio, ignora este mensaje.<br><br>'
+                    f'Gracias, el equipo de UniRide.'
+                ),
+                email=pending.email,
+                code=new_code,
+                link_url="https://app.unirideweb.online/verify-code",
+                link_text="Verificar mi cuenta"
+            )
+        except Exception:
+            logger.exception("Error reenviando código de verificación de registro")
+            return Response(
+                {"error": "No fue posible enviar el correo con el nuevo código. Intenta de nuevo más tarde."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         return Response({"message": "Se ha generado y enviado un nuevo código de verificación."}, status=status.HTTP_200_OK)
 
@@ -1210,23 +1231,30 @@ class ResendPasswordResetTokenView(APIView):
         reset_link = _build_frontend_url(getattr(settings, "PASSWORD_RESET_PATH", "/reset-password"), {"token": token})
 
         # Enviar correo
-        send_code_email(
-            subject='Recuperación de contraseña (Nuevo link)- UniRide',
-            message=(
-                f'Hola {user.name},<br>'
-                f'Tu link de recuperación de contraseña ha sido regenerado.<br>'
-                f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
-            ),
-            finalmessage=(
-                f'Este enlace expirará en 10 minutos.<br>'
-                f'Si no solicitaste este cambio, ignora este mensaje.<br>'
-                f'Gracias,<br>'
-                f'El equipo de UniRide.'
-            ),
-            email=user.email,
-            link_url=reset_link,
-            link_text="Restablecer contraseña"
-        )
+        try:
+            send_code_email(
+                subject='Recuperación de contraseña (Nuevo link)- UniRide',
+                message=(
+                    f'Hola {user.name},<br>'
+                    f'Tu link de recuperación de contraseña ha sido regenerado.<br>'
+                    f'Haz clic en el siguiente enlace para restablecer tu contraseña:<br>'
+                ),
+                finalmessage=(
+                    f'Este enlace expirará en 10 minutos.<br>'
+                    f'Si no solicitaste este cambio, ignora este mensaje.<br>'
+                    f'Gracias,<br>'
+                    f'El equipo de UniRide.'
+                ),
+                email=user.email,
+                link_url=reset_link,
+                link_text="Restablecer contraseña"
+            )
+        except Exception:
+            logger.exception("Error reenviando correo de recuperación de contraseña")
+            return Response(
+                {"error": "No fue posible enviar el correo de recuperación. Intenta de nuevo más tarde."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         return Response({"message": "Se ha enviado un nuevo enlace para restablecer la contraseña."}, status=status.HTTP_200_OK)
 
