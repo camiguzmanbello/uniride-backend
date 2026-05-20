@@ -9,6 +9,10 @@ from .serializers import ChatListSerializer, ChatCreateSerializer, MessageSerial
 from .permissions import IsChatParticipant
 from apps.trips.serializers import InterestSerializer
 from apps.trips.services.trip_flow import create_interest
+from apps.users.utils.login_payload_crypto import decrypt_payload, PayloadDecryptionError
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ChatViewSet(viewsets.ModelViewSet):
     """
@@ -65,6 +69,28 @@ class ChatViewSet(viewsets.ModelViewSet):
         chat.save()
         return Response({"detail": "Chat cerrado exitosamente."})
 
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        try:
+            data = data.copy()
+        except Exception:
+            pass
+
+        if isinstance(data, dict) and data.get("payload") is not None:
+            try:
+                decrypted = decrypt_payload(data.get("payload"))
+                for k, v in decrypted.items():
+                    data[k] = v
+            except PayloadDecryptionError as e:
+                logger.warning(f"Error descifrando payload de creación de chat: {str(e)}")
+                return Response({"error": "Payload de chat inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     @action(detail=True, methods=['get', 'post'])
     def messages(self, request, pk=None):
         """
@@ -93,8 +119,23 @@ class ChatViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_409_CONFLICT
                 )
             
+            data = request.data
+            try:
+                data = data.copy()
+            except Exception:
+                pass
+
+            if isinstance(data, dict) and data.get("payload") is not None:
+                try:
+                    decrypted = decrypt_payload(data.get("payload"))
+                    for k, v in decrypted.items():
+                        data[k] = v
+                except PayloadDecryptionError as e:
+                    logger.warning(f"Error descifrando payload de mensaje: {str(e)}")
+                    return Response({"error": "Payload de mensaje inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
             # Crear el mensaje
-            serializer = MessageSerializer(data=request.data)
+            serializer = MessageSerializer(data=data)
             if serializer.is_valid():
                 # Asignamos chat y sender explícitamente
                 # Nota: En models.py los campos FK se llaman chat_id y sender_id
@@ -110,7 +151,22 @@ class InterestViewSet(viewsets.GenericViewSet):
     serializer_class = InterestSerializer
 
     def create(self, request):
-        serializer = self.get_serializer(data=request.data)
+        data = request.data
+        try:
+            data = data.copy()
+        except Exception:
+            pass
+
+        if isinstance(data, dict) and data.get("payload") is not None:
+            try:
+                decrypted = decrypt_payload(data.get("payload"))
+                for k, v in decrypted.items():
+                    data[k] = v
+            except PayloadDecryptionError as e:
+                logger.warning(f"Error descifrando payload de interés: {str(e)}")
+                return Response({"error": "Payload de interés inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         
         pub_id = serializer.validated_data['publication_id']
