@@ -11,7 +11,10 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat,
 from django.conf import settings
 
 
-class LoginPayloadDecryptionError(Exception):
+class PayloadDecryptionError(Exception):
+    pass
+
+class LoginPayloadDecryptionError(PayloadDecryptionError):
     pass
 
 
@@ -114,32 +117,32 @@ def _b64decode(value: Any) -> bytes:
             raise LoginPayloadDecryptionError() from e
 
 
-def decrypt_login_payload(payload: Any) -> dict[str, str]:
+def decrypt_payload(payload: Any) -> dict[str, Any]:
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
         except Exception as e:
-            raise LoginPayloadDecryptionError() from e
+            raise PayloadDecryptionError() from e
 
     if not isinstance(payload, dict):
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError()
 
     if payload.get("v") != 1:
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError("Versión de payload no soportada")
 
     if payload.get("alg") != "RSA-OAEP-256+A256GCM":
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError("Algoritmo no soportado")
 
     enc_key = _b64decode(payload.get("enc_key"))
     iv = _b64decode(payload.get("iv"))
     ciphertext = _b64decode(payload.get("ciphertext"))
 
     if len(iv) != 12:
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError("IV inválido")
 
     private_key = _get_login_private_key()
     if private_key is None:
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError("Llave privada no configurada")
 
     try:
         aes_key = private_key.decrypt(
@@ -151,28 +154,37 @@ def decrypt_login_payload(payload: Any) -> dict[str, str]:
             ),
         )
     except Exception as e:
-        raise LoginPayloadDecryptionError() from e
+        raise PayloadDecryptionError("Error al descifrar la llave AES") from e
 
     if len(aes_key) != 32:
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError("Llave AES inválida")
 
     try:
         plaintext_bytes = AESGCM(aes_key).decrypt(iv, ciphertext, None)
     except Exception as e:
-        raise LoginPayloadDecryptionError() from e
+        raise PayloadDecryptionError("Error al descifrar el payload") from e
 
     try:
         decoded = json.loads(plaintext_bytes.decode("utf-8"))
     except Exception as e:
-        raise LoginPayloadDecryptionError() from e
+        raise PayloadDecryptionError("Error al parsear JSON descifrado") from e
 
     if not isinstance(decoded, dict):
-        raise LoginPayloadDecryptionError()
+        raise PayloadDecryptionError("El payload descifrado no es un objeto")
+
+    return decoded
+
+
+def decrypt_login_payload(payload: Any) -> dict[str, str]:
+    try:
+        decoded = decrypt_payload(payload)
+    except PayloadDecryptionError as e:
+        raise LoginPayloadDecryptionError() from e
 
     email = decoded.get("email")
     password = decoded.get("password")
 
     if not isinstance(email, str) or not isinstance(password, str):
-        raise LoginPayloadDecryptionError()
+        raise LoginPayloadDecryptionError("Faltan campos obligatorios en el login")
 
     return {"email": email, "password": password}

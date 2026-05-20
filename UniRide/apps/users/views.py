@@ -36,7 +36,7 @@ from django.shortcuts import get_object_or_404
 from apps.complaints.models import Complaint
 from apps.users.utils.suspension_service import check_and_handle_suspension
 from .utils.cloudinary_utils import delete_cloudinary_image, extract_public_id_from_url
-from apps.users.utils.login_payload_crypto import  decrypt_login_payload, get_login_key_status, get_login_public_key_kid, get_login_public_key_pem
+from apps.users.utils.login_payload_crypto import decrypt_login_payload, get_login_key_status, get_login_public_key_kid, get_login_public_key_pem, decrypt_payload, PayloadDecryptionError
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -166,6 +166,8 @@ class LoginPublicKeyView(APIView):
             return Response({"error": "Llave pública no configurada"}, status=status.HTTP_404_NOT_FOUND)
         return Response(
             {
+                "v": 1,
+                "alg": "RSA-OAEP-256+A256GCM",
                 "public_key_pem": public_key_pem,
             }
         )
@@ -305,12 +307,26 @@ class PreRegisterAdminView(APIView):
 
     @swagger_auto_schema(request_body=PendingAdminUserSerializer)
     def post(self, request):
+        data = request.data
+        try:
+            data = data.copy()
+        except Exception:
+            pass
+
+        if isinstance(data, dict) and data.get("payload") is not None:
+            try:
+                decrypted = decrypt_payload(data.get("payload"))
+                for k, v in decrypted.items():
+                    data[k] = v
+            except PayloadDecryptionError as e:
+                logger.warning(f"Error descifrando payload de preregistro admin: {str(e)}")
+                return Response({"error": "Payload de preregistro inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
         # ========================
         # SERIALIZER
         # ========================
         serializer = PendingAdminUserSerializer(
-            data=request.data, context={'request': request}
+            data=data, context={'request': request}
         )
         if not serializer.is_valid():
             return Response({'errors': serializer.errors}, status=400)
@@ -413,8 +429,24 @@ class ConfirmAdminView(APIView):
 
     @swagger_auto_schema(request_body=ConfirmAdminSerializer)
     def post(self, request):
+        data = request.data
+        try:
+            data = data.copy()
+        except Exception:
+            pass
+
+        if isinstance(data, dict) and data.get("payload") is not None:
+            try:
+                decrypted = decrypt_payload(data.get("payload"))
+                # Merge decrypted data into data
+                for k, v in decrypted.items():
+                    data[k] = v
+            except PayloadDecryptionError as e:
+                logger.warning(f"Error descifrando payload de confirmación admin: {str(e)}")
+                return Response({"error": "Payload de confirmación inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = ConfirmAdminSerializer(
-            data=request.data, context={'request': request}
+            data=data, context={'request': request}
         )
         if not serializer.is_valid():
             # Unificar errores para frontend
@@ -631,7 +663,23 @@ class RegisterView(APIView):
 
     @swagger_auto_schema(request_body=PendingUserSerializer)
     def post(self, request):
-        serializer = PendingUserSerializer(data=request.data)
+        data = request.data
+        try:
+            data = data.copy()
+        except Exception:
+            pass
+
+        if isinstance(data, dict) and data.get("payload") is not None:
+            try:
+                decrypted = decrypt_payload(data.get("payload"))
+                # Merge decrypted data into data
+                for k, v in decrypted.items():
+                    data[k] = v
+            except PayloadDecryptionError as e:
+                logger.warning(f"Error descifrando payload de registro: {str(e)}")
+                return Response({"error": "Payload de registro inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = PendingUserSerializer(data=data)
         if serializer.is_valid():
             email = serializer.validated_data['email'].lower()
             phone = serializer.validated_data['phone']
