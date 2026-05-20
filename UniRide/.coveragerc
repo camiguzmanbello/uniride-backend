@@ -1,0 +1,27 @@
+[run]
+branch = True
+
+omit =
+    */migrations/*
+    */settings/*
+    */requirements.txt
+    */manage.py
+    */__pycache__/*
+    */venv/*
+    */env/*
+    */tests.py
+    */test_*.py
+    */*_tests.py
+    */admin.py
+    */apps.py
+    */urls.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
