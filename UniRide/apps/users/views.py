@@ -913,11 +913,12 @@ class VehicleView(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             elif not existing_vehicle.is_active:
-                # Reactivar vehículo
-                existing_vehicle.is_active = True
-                existing_vehicle.save()
+                # Reactivar y actualizar vehículo con los nuevos datos
+                serializer = self.get_serializer(existing_vehicle, data=request.data)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(is_active=True)
                 return Response(
-                    {"message": "Vehículo reactivado exitosamente."},
+                    {"message": "Vehículo reactivado y actualizado exitosamente.", "vehicle": serializer.data},
                     status=status.HTTP_200_OK
                 )
             else:
