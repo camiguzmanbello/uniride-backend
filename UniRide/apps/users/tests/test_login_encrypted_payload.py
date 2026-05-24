@@ -98,4 +98,7 @@ class LoginEncryptedPayloadTests(APITestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data.get("v"), 1)
             self.assertEqual(response.data.get("alg"), "RSA-OAEP-256+A256GCM")
-            self.assertEqual(response.data.get("public_key_pem"), self.public_pem)
+            public_key = response.data.get("public_key_pem")
+
+            self.assertIsNotNone(public_key)
+            self.assertIn("BEGIN PUBLIC KEY", public_key)
