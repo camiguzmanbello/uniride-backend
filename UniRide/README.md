@@ -1,46 +1,49 @@
 # UniRide Backend
 
-## Descripción
+## Overview
 
-UniRide es una plataforma de movilidad colaborativa diseñada para conectar conductores y pasajeros dentro de la comunidad universitaria de forma segura y eficiente.
+UniRide is a collaborative mobility platform designed to connect drivers and passengers within the university community in a safe, efficient, and user-friendly way.
 
-Este repositorio contiene el backend de la aplicación, desarrollado con Django y Django REST Framework, proporcionando una arquitectura API REST para la gestión de usuarios, viajes, autenticación, calificaciones, quejas y procesos administrativos.
+This repository contains the backend of the application, developed with Django and Django REST Framework, providing a scalable REST API architecture for user management, trip management, authentication, ratings, complaints, notifications, reporting, email services, and administrative operations.
 
-### Mi contribución principal
+## My Contributions
 
-* Desarrollo completo del panel administrativo.
-* Implementación del sistema de autenticación basado en JWT.
-* Desarrollo del sistema de auditoría y gestión de usuarios.
-* Diseño e implementación del sistema de emparejamiento inteligente entre conductores y pasajeros.
-* Implementación de lógica de validación y seguridad de la plataforma.
-* Desarrollo y documentación de APIs REST.
+* Developed the complete administrative dashboard.
+* Designed and implemented the intelligent matching system between drivers and passengers.
+* Implemented JWT-based authentication and authorization.
+* Developed the audit logging system.
+* Implemented user management and role-based access control.
+* Developed reporting and analytics features.
+* Implemented email notification services.
+* Designed and documented REST APIs using Django REST Framework and Swagger.
+* Contributed to system security, validation rules, and backend architecture.
 
-## Tecnologías usadas
+## Technologies
 
 * Python
 * Django
 * Django REST Framework
 * MySQL
 * JWT Authentication
-* Swagger/OpenAPI
+* Swagger / OpenAPI
 * Git & GitHub
-* Scrum
+* Scrum Methodology
 
-## Cómo correrlo localmente
+## Getting Started
 
-### Clonar el repositorio
+### Clone the repository
 
 ```bash
 git clone https://github.com/camiguzmanbello/uniride-backend.git
 ```
 
-### Crear entorno virtual
+### Create a virtual environment
 
 ```bash
 python -m venv env
 ```
 
-### Activar entorno virtual
+### Activate the virtual environment
 
 Windows:
 
@@ -48,32 +51,69 @@ Windows:
 env\Scripts\activate
 ```
 
-### Instalar dependencias
+### Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Ejecutar migraciones
+### Run migrations
 
 ```bash
 python manage.py migrate
 ```
 
-### Ejecutar servidor
+### Start the development server
 
 ```bash
 python manage.py runserver
 ```
 
-## Screenshots / Demo
+## Screenshots
 
-* Panel administrativo
-* Gestión de usuarios
-* Gestión de viajes
-* Sistema de auditoría
-* Documentación Swagger
+### Administrative Dashboard
 
-## Estado del proyecto
+![Administrative Dashboard](docs/images/admin-dashboard.png)
 
-Proyecto académico funcional con despliegue y mejoras continuas.
+### User Management
+
+![User Management](docs/images/user-management.png)
+
+### Trip Management
+
+![Trip Management](docs/images/trip-management.png)
+
+### Audit Logs
+
+![Audit Logs](docs/images/audit-logs.png)
+
+### Reports and Analytics
+
+![Reports and Analytics](docs/images/reports.png)
+
+### Email Notifications
+
+![Email Notifications](docs/images/email-notifications.png)
+
+### Intelligent Matching System
+
+![Matching System](docs/images/matching-system.png)
+
+## Features
+
+* User Registration and Authentication
+* JWT Authentication
+* Role-Based Authorization
+* Trip Management
+* Intelligent Driver-Passenger Matching
+* Ratings and Reviews
+* Complaint Management
+* Administrative Dashboard
+* Audit Logging
+* Reporting and Analytics
+* Email Notifications
+* REST API Documentation
+
+## Project Status
+
+Completed academic project with continuous improvements and maintenance.
